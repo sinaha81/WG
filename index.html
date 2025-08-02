@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WG WARP Generator</title>
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#171130"/>
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/Ptechgithub/configs/main/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.json">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- SheetJS for reading XLSX files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Vazirmatn', sans-serif; background-color: #0c0a1a; }
+        #particles-js { position: fixed; width: 100%; height: 100%; top: 0; left: 0; z-index: 0; }
+        .main-container { position: relative; z-index: 1; }
+        .gradient-text { background-image: linear-gradient(120deg, #f093fb 0%, #f5576c 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .glass-card { background: rgba(23, 17, 48, 0.45); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1.5rem; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+        .code-box { color: #e5e7eb; }
+        .code-box .string { color: #a5b4fc; }
+        .code-box .key { color: #f472b6; }
+        .code-box .number { color: #fef08a; }
+        .code-box .boolean { color: #6ee7b7; }
+        .markdown-content h1, .markdown-content h2, .markdown-content h3 { font-weight: 700; margin-bottom: 0.75rem; margin-top: 1.5rem; color: #f9fafb; }
+        .markdown-content h1 { font-size: 1.875rem; line-height: 2.25rem; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom: 0.5rem;}
+        .markdown-content p, .markdown-content li, .markdown-content ul, .markdown-content ol { color: #f9fafb; }
+        .markdown-content a { color: #f093fb; text-decoration: none; transition: color 0.2s; }
+        .markdown-content a:hover { color: #f5576c; }
+        .markdown-content code { background-color: rgba(0, 0, 0, 0.3); color: #f472b6; padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-size: 0.9em; }
+        .ltr-code, .ltr-input, .ltr-select { direction: ltr; text-align: left; }
+        
+        #howToUseModal { transition: opacity 0.3s ease-in-out; }
+        #howToUseModal.is-open { opacity: 1; pointer-events: auto; }
+        #howToUseModal:not(.is-open) { opacity: 0; pointer-events: none; }
+        .modal-content { transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; }
+        .modal-content.is-open { opacity: 1; transform: scale(1); }
+        .modal-content:not(.is-open) { opacity: 0; transform: scale(0.95); }
+
+        .tab-pane { transition: opacity 0.35s ease-in-out; }
+        .tooltip-icon { cursor: pointer; display: inline-block; margin-right: 5px; color: #9ca3af; font-weight: bold; }
+        .swal2-popup { font-family: 'Vazirmatn', sans-serif; direction: rtl; }
+
+        .drop-zone { border: 2px dashed #4a5568; border-radius: 0.75rem; padding: 1.5rem; text-align: center; color: #a0aec0; cursor: pointer; transition: border-color 0.3s, background-color 0.3s; }
+        .drop-zone-over { border-color: #f093fb; background-color: rgba(240, 147, 251, 0.1); }
+
+        /* Endpoint List Numbering */
+        .endpoint-ol { list-style: none; counter-reset: endpoint-counter; padding-right: 1rem; }
+        .endpoint-ol > li { counter-increment: endpoint-counter; display: flex; align-items: center; gap: 0.5rem; }
+        .endpoint-ol > li::before {
+            content: counter(endpoint-counter) ".";
+            color: #a0aec0; /* gray-500 */
+            font-weight: 500;
+            min-width: 1.5rem;
+            text-align: right;
+        }
+        .endpoint-content { flex-grow: 1; direction: ltr; }
+    </style>
+</head>
+<body>
+    <div id="particles-js"></div>
+
+    <div class="main-container min-h-screen flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-5xl">
+            <header class="text-center my-10">
+                <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight gradient-text">WARP Generator</h1>
+                 <div class="mt-6 flex flex-wrap justify-center items-center gap-4">
+                    <button id="howToUseBtn" class="text-pink-400 border border-pink-400/50 hover:bg-pink-400/10 font-semibold py-2 px-5 rounded-full transition-all">
+                        راهنمای استفاده
+                    </button>
+                    <a href="https://www.dnsleaktest.com/" target="_blank" rel="noopener noreferrer" class="text-blue-400 border border-blue-400/50 hover:bg-blue-400/10 font-semibold py-2 px-5 rounded-full transition-all">تست نشت DNS</a>
+                 </div>
+            </header>
+
+            <main class="w-full">
+                <div id="initial-section" class="text-center">
+                    <div id="first-time-generator">
+                        <button id="generateBtn" class="bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 ease-in-out inline-flex items-center gap-3">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            ایجاد اولین کانفیگ
+                        </button>
+                    </div>
+                    <div id="config-manager" class="hidden glass-card p-6 max-w-2xl mx-auto">
+                        <h2 class="text-xl font-bold text-white mb-5 text-center">مدیریت کانفیگ‌ها</h2>
+                        <div class="flex flex-col sm:flex-row gap-4 items-center">
+                            <select id="savedConfigsDropdown" class="block w-full sm:w-auto flex-grow bg-gray-700/50 border border-gray-600 text-white rounded-lg p-2.5 focus:ring-pink-500 focus:border-pink-500 ltr-select"></select>
+                            <button id="updateEndpointsBtn" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex-shrink-0">بارگذاری مجدد</button>
+                        </div>
+                        <div class="mt-4 flex flex-wrap justify-center gap-3">
+                            <button id="generateNewBtn" class="bg-pink-600 hover:bg-pink-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">ایجاد جدید</button>
+                            <button id="renameConfigBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">تغییر نام</button>
+                            <button id="deleteConfigBtn" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">حذف</button>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-white/20 flex flex-wrap justify-center gap-3">
+                            <button id="backupBtn" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">پشتیبان‌گیری</button>
+                            <button id="restoreBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">بازیابی</button>
+                            <input type="file" id="restoreInput" class="hidden" accept=".json">
+                        </div>
+                    </div>
+                    <p id="statusText" class="text-gray-400 text-sm mt-4 h-5"></p>
+                </div>
+
+                <div id="results" class="hidden opacity-0 transform -translate-y-5 transition-all duration-500 ease-in-out"></div>
+            </main>
+        </div>
+
+        <div id="howToUseModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+            <div class="modal-content glass-card max-w-3xl w-full max-h-[90vh] flex flex-col">
+                <div class="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0">
+                    <h2 class="text-xl font-bold text-white">راهنمای استفاده</h2>
+                    <button id="closeModalBtn" class="text-gray-300 hover:text-white text-3xl leading-none">×</button>
+                </div>
+                <div id="howToUseContent" class="p-6 overflow-y-auto markdown-content"></div>
+            </div>
+        </div>
+
+        <footer class="text-center py-8 mt-12 w-full"></footer>
+    </div>
+
+<script>
+// ===== PWA Service Worker Registration =====
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(registration => {
+            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+        }, err => {
+            console.log('ServiceWorker registration failed: ', err);
+        });
+    });
+}
+
+// ===== INITIALIZE DYNAMIC BACKGROUND =====
+tsParticles.load("particles-js", { fpsLimit: 60, particles: { number: { value: 50, density: { enable: true, value_area: 800 } }, color: { value: "#ffffff" }, shape: { type: "circle" }, opacity: { value: 0.3, random: true, anim: { enable: true, speed: 1, opacity_min: 0.1, sync: false } }, size: { value: 3, random: true }, move: { enable: true, speed: 1, direction: "bottom", random: false, straight: false, out_mode: "out" } }, interactivity: { detect_on: "canvas", events: { onhover: { enable: false }, onclick: { enable: false } } } });
+
+// ===== APP LOGIC =====
+document.addEventListener('DOMContentLoaded', () => {
+    // --- CONFIGURATION & CONSTANTS ---
+    class ShzAlClient {
+        constructor(baseURL = 'https://shz.al') { this.baseURL = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL; }
+        async _handleResponse(response) { if (!response.ok) { const errorText = await response.text(); throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`); } return response.json(); }
+        async uploadPaste(content, options = {}) { const formData = new FormData(); formData.append('c', content); if (options.expiration) formData.append('e', options.expiration); const response = await fetch(this.baseURL + '/', { method: 'POST', body: formData }); return this._handleResponse(response); }
+    }
+     class TtmShClient {
+        constructor(baseURL = 'https://ttm.sh') { this.baseURL = baseURL; }
+        async uploadPaste(content, options = {}) {
+            const formData = new FormData();
+            formData.append('c', content);
+            const response = await fetch(this.baseURL, { method: 'POST', body: formData });
+            if (!response.ok) {
+                 const errorText = await response.text();
+                 throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`);
+            }
+            const textResponse = await response.text();
+            return { url: textResponse.trim() };
+        }
+    }
+
+    const STORAGE_KEY = 'warpGeneratorAccounts';
+    const DEFAULT_DNS = 'https://dns.google/dns-query';
+    const DEFAULT_URL_TEST = 'https://www.youtube.com/';
+    const DEFAULT_URL_TEST_INTERVAL = 5; // In minutes
+    const DEFAULT_JITTER = { ifp: '50-100', ifps: '50-100', ifpd: '3-6', ifpm: 'm3' };
+    const RECOMMENDED_JITTER = { ifp: '40-80', ifps: '50-100', ifpd: '2-4', ifpm: 'm3' };
+
+    const DEFAULT_ENDPOINTS = [
+        '8.34.146.37:3854', '8.34.146.47:864', '8.34.70.82:988', '8.39.204.244:3476',
+        '8.35.211.140:7156', '8.34.146.156:2408', '8.35.211.119:500', '8.34.70.34:1002',
+        '188.114.98.224:864', '188.114.98.0:878', '188.114.98.224:500', '188.114.99.212:1074',
+        '188.114.98.61:955', '188.114.96.239:1387', '188.114.98.224:878', '188.114.98.224:854'
+    ];
+
+    // --- DOM ELEMENT REFERENCES ---
+    const shortenerClients = { 'shz.al': new ShzAlClient(), 'ttm.sh': new TtmShClient() };
+    const statusText = document.getElementById('statusText');
+    const resultsDiv = document.getElementById('results');
+    const firstTimeGeneratorDiv = document.getElementById('first-time-generator');
+    const configManagerDiv = document.getElementById('config-manager');
+    const generateBtn = document.getElementById('generateBtn');
+    const generateNewBtn = document.getElementById('generateNewBtn');
+    const savedConfigsDropdown = document.getElementById('savedConfigsDropdown');
+    const updateEndpointsBtn = document.getElementById('updateEndpointsBtn');
+    const renameConfigBtn = document.getElementById('renameConfigBtn');
+    const deleteConfigBtn = document.getElementById('deleteConfigBtn');
+    const howToUseBtn = document.getElementById('howToUseBtn');
+    const howToUseModal = document.getElementById('howToUseModal');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const howToUseContent = document.getElementById('howToUseContent');
+    const modalContent = document.querySelector('.modal-content');
+    const backupBtn = document.getElementById('backupBtn');
+    const restoreBtn = document.getElementById('restoreBtn');
+    const restoreInput = document.getElementById('restoreInput');
+    const loadingButtonHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>در حال تولید...`;
+    const checkmarkIcon = `<svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+
+    // --- GLOBAL STATE ---
+    let generatedConfigs = null;
+    let currentAccount = null;
+
+    // --- UTILITY FUNCTIONS ---
+    const getSavedAccounts = () => JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const saveAccounts = (accounts) => localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
+    const setStatus = (message, isError = false) => { statusText.textContent = message; statusText.style.color = isError ? '#f87171' : '#9ca3af'; };
+    const generateRandomString = (len) => Array.from({ length: len }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.charAt(Math.floor(Math.random() * 62))).join('');
+    const escapeHtml = (text) => {
+        const p = document.createElement('p');
+        p.textContent = text;
+        return p.innerHTML;
+    };
+    const arrayBufferToBase64 = (buffer) => { let binary = ''; const bytes = new Uint8Array(buffer); bytes.forEach((byte) => binary += String.fromCharCode(byte)); return window.btoa(binary); };
+    const syntaxHighlightJson = (json) => {
+        if (typeof json != 'string') { json = JSON.stringify(json, undefined, 2); }
+        json = escapeHtml(json);
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
+            let cls = 'number';
+            if (/^"/.test(match)) { cls = /:$/.test(match) ? 'key' : 'string'; }
+            else if (/true|false/.test(match)) { cls = 'boolean'; }
+            return `<span class="${cls}">${match}</span>`;
+        });
+    };
+
+    // --- CORE BUSINESS LOGIC ---
+    async function fetchRandomLicense() {
+        try {
+            const response = await fetch('https://raw.githubusercontent.com/ircfspace/warpkey/main/plus/full');
+            if (!response.ok) return '';
+            const text = await response.text();
+            const licenses = text.trim().split('\n');
+            if (licenses.length > 0) {
+                return licenses[Math.floor(Math.random() * licenses.length)].trim();
+            }
+        } catch (error) {
+            console.error('Failed to fetch license:', error);
+        }
+        return '';
+    }
+
+    async function generateLocalKeys() {
+        if (!window.crypto || !window.crypto.subtle) { throw new Error('Web Crypto API is not supported in this browser. Please use a modern browser.'); }
+        const keyPair = await window.crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveKey', 'deriveBits']);
+        const [publicKey, privateKey] = await Promise.all([
+            window.crypto.subtle.exportKey('raw', keyPair.publicKey),
+            window.crypto.subtle.exportKey('pkcs8', keyPair.privateKey)
+        ]);
+        const rawPrivateKey = privateKey.slice(-32);
+        return { publicKey: arrayBufferToBase64(publicKey), privateKey: arrayBufferToBase64(rawPrivateKey) };
+    }
+
+    async function fetchAccountFromWorker() {
+        setStatus(`در حال تولید کلیدهای امن محلی...`);
+        const { privateKey, publicKey } = await generateLocalKeys();
+        
+        setStatus(`در حال ثبت حساب کاربری جدید WARP...`);
+        const installId = generateRandomString(22);
+        const response = await fetch('https://www.warp-generator.workers.dev/wg', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: publicKey, install_id: installId, fcm_token: `${installId}:APA91b${generateRandomString(134)}`, tos: new Date().toISOString(), type: 'Android', locale: 'en_US' }),
+        });
+        if (!response.ok) throw new Error(`API Account registration failed: ${response.status}`);
+        const accountData = await response.json();
+        
+        return { 
+            privateKey: privateKey,
+            v4: accountData.config.interface.addresses.v4, 
+            v6: accountData.config.interface.addresses.v6, 
+            peerPublicKey: accountData.config.peers[0].public_key, 
+            reserved: Array.from(atob(accountData.config.client_id)).map(c => c.charCodeAt(0)) 
+        };
+    }
+
+    async function fetchAllEndpoints() {
+        setStatus("در حال بارگذاری Endpoint های پیش فرض...");
+        const uniqueEndpoints = [...new Set(DEFAULT_ENDPOINTS)];
+        return Promise.resolve(uniqueEndpoints.sort(() => 0.5 - Math.random()));
+    }
+
+    async function generateAllFormats(account, allEndpoints, settings) {
+        setStatus("در حال دریافت لایسنس‌ها برای هر کانفیگ...");
+        const primaryEndpoint = allEndpoints[0] || '';
+        if (!primaryEndpoint) {
+             setStatus("خطا: حداقل یک Endpoint مورد نیاز است.", true);
+             return null;
+        }
+        const urlTestIntervalInSeconds = settings.urlTestInterval * 60;
+        const jitter = settings.jitter;
+        const modesToGenerate = jitter.ifpm === 'all' ? ['m1', 'm2', 'm3', 'm4', 'm5', 'm6'] : [jitter.ifpm];
+        
+        let allStandardConfs = '', allAmneziaConfs = '';
+
+        const singleLicense = await fetchRandomLicense();
+
+        for (const mode of modesToGenerate) {
+            const baseName = settings.configName || 'WG';
+            const connType = settings.enableWoW ? 'WoW' : 'WARP';
+            const finalConfigName = `${baseName}-${connType}-Std-1-${primaryEndpoint}`;
+
+            let standardConf = `[Interface]\nPrivateKey = ${account.privateKey}\nAddress = ${account.v4}/32, ${account.v6}/128\nDNS = ${settings.dns}\nMTU = 1280\n\n[Peer]\nPublicKey = ${account.peerPublicKey}\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = ${primaryEndpoint}`;
+            standardConf += `\n\n# name = ${finalConfigName}\n# ifp = ${jitter.ifp}\n# ifps = ${jitter.ifps}\n# ifpd = ${jitter.ifpd}\n# ifpm = ${mode}`;
+            allStandardConfs += standardConf + (modesToGenerate.length > 1 ? '\n\n# ===================================\n\n' : '');
+
+            const amneziaName = `${baseName}-${connType}-Amnezia-1-${primaryEndpoint}`;
+            let amneziaConf = `[Interface]\nPrivateKey = ${account.privateKey}\nAddress = ${account.v4}/32, ${account.v6}/128\nDNS = ${settings.dns}\nMTU = 1280\nJc = 4\nJmin = 40\nJmax = 70\n\n[Peer]\nPublicKey = ${account.peerPublicKey}\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = ${primaryEndpoint}`;
+            amneziaConf += `\n\n# name = ${amneziaName}\n# ifp = ${jitter.ifp}\n# ifps = ${jitter.ifps}\n# ifpd = ${jitter.ifpd}\n# ifpm = ${mode}`;
+            allAmneziaConfs += amneziaConf + (modesToGenerate.length > 1 ? '\n\n# ===================================\n\n' : '');
+        }
+        
+        const licensePromises = allEndpoints.map(() => fetchRandomLicense());
+        const licenses = await Promise.all(licensePromises);
+        
+        let subscriptionLinks = '';
+        allEndpoints.forEach((ep, index) => {
+            let baseLink = `warp://${account.privateKey}@${ep}/?ifp=${jitter.ifp}&ifps=${jitter.ifps}&ifpd=${jitter.ifpd}&ifpm=${modesToGenerate[0]}`;
+            const license = licenses[index];
+            if (license) baseLink += `&license=${license}`;
+            const name = `${settings.configName || 'WG'}-${settings.enableWoW ? 'WoW' : 'WARP'}-Sub-${index + 1}-${ep}`;
+            const finalLink = `${baseLink}#${encodeURIComponent(name)}`;
+            subscriptionLinks += finalLink + '\n';
+        });
+
+        const buildJsonTemplate = () => {
+             const template = {
+                "log": { "loglevel": "warning" },
+                "dns": {
+                    "servers": [
+                        { "tag": "proxy-dns", "address": settings.dns, "detour": "proxy" },
+                        { "tag": "direct-dns", "address": "1.1.1.1", "detour": "direct" },
+                    ],
+                    "rules": [
+                        { "rule_set": ["geosite-ir"], "server": "direct-dns" },
+                        { "rule_set": ["geoip-ir"], "server": "direct-dns" },
+                        { "outbound": "any", "server": "proxy-dns" }
+                    ], "strategy": "prefer_ipv4"
+                },
+                "inbounds": [
+                    { "type": "tun", "tag": "tun-in", "interface_name": "tun0", "inet4_address": "172.19.0.1/30", "mtu": 1280, "auto_route": true, "strict_route": true, "sniff": true },
+                    { "type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": 2080 }
+                ],
+                "outbounds": [
+                    { "type": "selector", "tag": "proxy", "outbounds": ["auto", "direct"], "default": "auto" },
+                    { "type": "urltest", "tag": "auto", "outbounds": [], "url": settings.urlTestUrl, "interval": `${urlTestIntervalInSeconds}s` },
+                    { "type": "direct", "tag": "direct" },
+                    { "type": "dns", "tag": "dns-out" }
+                ],
+                "route": {
+                    "rule_set": [
+                        { "tag": "geoip-ir", "type": "remote", "format": "binary", "url": "https://cdn.jsdelivr.net/gh/chocolate4u/Iran-sing-box-rules@rule-set/geoip-ir.srs" },
+                        { "tag": "geosite-ir", "type": "remote", "format": "binary", "url": "https://cdn.jsdelivr.net/gh/chocolate4u/Iran-sing-box-rules@rule-set/geosite-ir.srs" }
+                    ],
+                    "rules": [
+                        { "protocol": "dns", "outbound": "dns-out" },
+                        { "rule_set": ["geoip-ir", "geosite-ir"], "outbound": "direct" }
+                    ], "final": "proxy"
+                }
+            };
+            const urltestOutbound = template.outbounds.find(o => o.tag === 'auto');
+            allEndpoints.forEach(ep => {
+                if (!ep.includes(':')) return;
+                const [server, port] = ep.split(':');
+                const wireguardOutbound = {
+                    "type": "wireguard", "tag": `(WARP) ${ep}`,
+                    "server": server, "server_port": parseInt(port),
+                    "local_address": [`${account.v4}/32`, `${account.v6}/128`],
+                    "private_key": account.privateKey, "peer_public_key": account.peerPublicKey,
+                    "reserved": account.reserved, "mtu": 1280
+                };
+                template.outbounds.push(wireguardOutbound);
+                urltestOutbound.outbounds.push(`(WARP) ${ep}`);
+            });
+            return template;
+        };
+
+        const singboxTemplate = buildJsonTemplate();
+        
+        const v2rayConfigString = `{\n  "outbounds": [\n    {\n      "type": "wireguard",\n      "tag": "WARP",\n      "server": "${primaryEndpoint.split(':')[0]}",\n      "server_port": ${parseInt(primaryEndpoint.split(':')[1] || 2408)},\n      "local_address": ["${account.v4}/32", "${account.v6}/128"],\n      "private_key": "${account.privateKey}",\n      "peer_public_key": "${account.peerPublicKey}",\n      "reserved": [${account.reserved.join(', ')}],\n      "mtu": 1280\n    }\n  ]\n}`;
+        setStatus("");
+        return {
+            standard: allStandardConfs.trim(),
+            amnezia: allAmneziaConfs.trim(),
+            singbox: JSON.stringify(singboxTemplate, null, 2),
+            v2ray: v2rayConfigString,
+            subscription_text: subscriptionLinks.trim(),
+        };
+    }
+
+    // --- UI RENDERING ---
+    function renderResults(configs, allEndpoints, advancedSettings) {
+        const jitterOptions = (id, values, selected) => values.map(v => `<option value="${v}" ${selected === v ? 'selected' : ''}>${v}</option>`).join('');
+        const ifpmOptions = [
+            { value: 'all', text: 'همه حالت ها (All)' }, { value: 'm1', text: 'm1' }, { value: 'm2', text: 'm2' },
+            { value: 'm3', text: 'm3 (پیشنهادی)' }, { value: 'm4', text: 'm4' }, { value: 'm5', text: 'm5' }, { value: 'm6', text: 'm6' }
+        ];
+        
+        resultsDiv.innerHTML = `
+            <div class="glass-card p-4 sm:p-6 md:p-8 mt-8 shadow-2xl">
+                <h2 class="text-2xl font-bold mb-6 text-white text-center">کانفیگ‌های شما آماده است!</h2>
+                
+                <div class="mb-6 bg-black/20 p-4 rounded-xl border border-white/10 transition-all">
+                    <h3 class="font-semibold text-lg text-white select-none mb-4">تنظیمات پیشرفته</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                        <div>
+                            <label for="dns-input" class="block mb-2 text-sm font-medium text-gray-300">سرور DNS سفارشی:</label>
+                            <input type="text" id="dns-input" class="ltr-input bg-gray-700/50 border border-gray-600 text-white text-sm rounded-lg focus:ring-pink-500 focus:border-pink-500 block w-full p-2.5" value="${escapeHtml(advancedSettings.dns)}">
+                        </div>
+                        <div>
+                            <label for="url-test-input" class="block mb-2 text-sm font-medium text-gray-300">URL تست (برای Sing-Box):</label>
+                            <input type="text" id="url-test-input" class="ltr-input bg-gray-700/50 border border-gray-600 text-white text-sm rounded-lg focus:ring-pink-500 focus:border-pink-500 block w-full p-2.5" value="${escapeHtml(advancedSettings.urlTestUrl)}">
+                        </div>
+                        <div>
+                            <label for="url-test-interval-input" class="block mb-2 text-sm font-medium text-gray-300">فاصله زمانی تست (دقیقه):</label>
+                            <input type="number" id="url-test-interval-input" class="ltr-input bg-gray-700/50 border border-gray-600 text-white text-sm rounded-lg focus:ring-pink-500 focus:border-pink-500 block w-full p-2.5" value="${advancedSettings.urlTestInterval}">
+                        </div>
+                        <div class="flex items-center justify-start md:pt-8">
+                             <input type="checkbox" id="wow-toggle" class="h-5 w-5 text-pink-500 focus:ring-pink-600 border-gray-500 rounded" ${advancedSettings.enableWoW ? 'checked' : ''}>
+                             <label for="wow-toggle" class="ml-3 rtl:mr-3 text-sm font-medium text-gray-300">فعال‌سازی وارپ در وارپ (WoW)</label>
+                        </div>
+
+                        <div class="md:col-span-2 mt-4 pt-4 border-t border-white/10">
+                            <details id="jitter-settings" class="bg-black/10 p-4 rounded-xl border border-white/10 transition-all" open>
+                                <summary class="font-semibold text-lg text-gray-200 cursor-pointer select-none">تنظیمات نویز (Jitter) و نام</summary>
+                                <div class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div>
+                                        <label for="config-name-input" class="block mb-2 text-sm font-medium text-gray-300">نام پایه کانفیگ:</label>
+                                        <input type="text" id="config-name-input" class="ltr-input bg-gray-700/50 border border-gray-600 text-white text-sm rounded-lg w-full p-2.5" value="${escapeHtml(advancedSettings.configName || 'WG')}">
+                                    </div>
+                                    <div>
+                                        <label for="ifpm-select" class="block mb-2 text-sm font-medium text-gray-300">حالت تولید نویز (ifpm):</label>
+                                        <select id="ifpm-select" class="ltr-select bg-gray-700/50 border border-gray-600 text-white text-sm rounded-lg w-full p-2.5">${ifpmOptions.map(o => `<option value="${o.value}" ${advancedSettings.jitter.ifpm === o.value ? 'selected' : ''}>${o.text}</option>`).join('')}</select>
+                                    </div>
+                                    <div>
+                                        <label for="ifp-select" class="block mb-2 text-sm font-medium text-gray-300"><span class="tooltip-icon" data-tooltip="تعداد بسته‌های نویز در هر ارتباط">(?)</span>تعداد بسته‌های نویز (ifp):</label>
+                                        <select id="ifp-select" class="ltr-select bg-gray-700/50 border border-gray-600 text-white text-sm rounded-lg w-full p-2.5">${jitterOptions('ifp', ['10-20','20-30','30-40','40-50','50-60','60-70','70-80','80-90','90-100','20-40','30-60','40-80','50-100','100-150'], advancedSettings.jitter.ifp)}</select>
+                                    </div>
+                                    <div>
+                                        <label for="ifps-select" class="block mb-2 text-sm font-medium text-gray-300"><span class="tooltip-icon" data-tooltip="اندازه هر بسته نویز به بایت">(?)</span>اندازه بسته‌های نویز (ifps):</label>
+                                        <select id="ifps-select" class="ltr-select bg-gray-700/50 border border-gray-600 text-white text-sm rounded-lg w-full p-2.5">${jitterOptions('ifps', ['10-20','20-30','30-40','40-50','50-60','60-70','70-80','80-90','90-100','20-40','30-60','40-80','50-100','100-150'], advancedSettings.jitter.ifps)}</select>
+                                    </div>
+                                    <div>
+                                        <label for="ifpd-select" class="block mb-2 text-sm font-medium text-gray-300"><span class="tooltip-icon" data-tooltip="تاخیر زمانی بین ارسال بسته‌های نویز به میلی ثانیه">(?)</span>تأخیر بسته‌های نویز (ifpd):</label>
+                                        <select id="ifpd-select" class="ltr-select bg-gray-700/50 border border-gray-600 text-white text-sm rounded-lg w-full p-2.5">${jitterOptions('ifpd', ['1-2','2-3','3-4','4-5','5-6','6-7','2-4','3-6','4-8','5-10'], advancedSettings.jitter.ifpd)}</select>
+                                    </div>
+                                    <div class="flex items-end">
+                                        <button id="smartJitterBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Jitter هوشمند</button>
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+                         <div class="md:col-span-2">
+                             <div class="mt-4 pt-4 border-t border-white/10">
+                                <div class="mb-4">
+                                     <label class="block mb-2 text-sm font-medium text-gray-300">مدیریت لیست Endpoint ها:</label>
+                                     <div id="endpoint-drop-zone" class="drop-zone mb-4">
+                                        فایل (.txt, .csv, .xlsx) را اینجا بکشید یا برای انتخاب کلیک کنید
+                                     </div>
+                                     <input type="file" id="endpoint-file-input" class="hidden" accept=".txt,.csv,.application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.application/vnd.ms-excel">
+                                     <ol id="endpoints-list" class="endpoint-ol bg-gray-900/50 border border-gray-700 rounded-lg p-2.5 max-h-60 overflow-y-auto space-y-1">
+                                        ${allEndpoints.map(ep => renderEndpointItem(ep)).join('')}
+                                     </ol>
+                                     <div class="mt-2">
+                                        <button id="add-endpoint-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">افزودن Endpoint</button>
+                                     </div>
+                                </div>
+                                <div class="mt-4 mb-2 flex flex-wrap justify-center gap-4">
+                                    <a href="https://github.com/bia-pain-bache/BPB-Warp-Scanner/releases" target="_blank" rel="noopener noreferrer" class="font-bold text-blue-400 hover:text-blue-300 transition-colors">دانلود اسکنر Endpoint</a>
+                                    <button id="resetSettingsBtn" class="font-bold text-red-400 hover:text-red-300 transition-colors">بازگشت به پیش‌فرض</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+                    <div class="lg:col-span-2">
+                        <h3 class="text-xl font-bold mb-4 text-center text-gray-300">پیش‌نمایش و اشتراک‌گذاری</h3>
+                        <div class="border-b border-white/10 mb-4">
+                             <nav class="flex flex-wrap -mb-px justify-center sm:justify-start" aria-label="Tabs">
+                                <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm border-pink-500 text-pink-400" data-tab-target="#tab-subscription">اشتراک</button>
+                                <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm text-gray-400 border-transparent hover:text-gray-300 hover:border-gray-500 mx-1" data-tab-target="#tab-singbox">Sing-Box</button>
+                                <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm text-gray-400 border-transparent hover:text-gray-300 hover:border-gray-500" data-tab-target="#tab-standard">Standard WG</button>
+                                <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm text-gray-400 border-transparent hover:text-gray-300 hover:border-gray-500 mx-1" data-tab-target="#tab-amnezia">AmneziaWG</button>
+                                <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm text-gray-400 border-transparent hover:text-gray-300 hover:border-gray-500" data-tab-target="#tab-v2ray">V2Ray-Core</button>
+                            </nav>
+                        </div>
+                        <div id="tab-content-area" class="relative"></div>
+                    </div>
+                    <div class="flex flex-col items-center justify-center pt-6 lg:pt-0">
+                        <h3 id="qrcode-title" class="font-semibold text-lg mb-2 text-pink-400"></h3>
+                        <div id="qrcode-wrapper" class="p-3 bg-white rounded-lg shadow-md">
+                            <div id="qrcode"></div>
+                            <p id="qrcode-message" class="hidden text-center text-gray-700 p-8 font-medium">این فرمت برای QR مناسب نیست.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        
+        populateTabs(configs);
+        updateQrCode(null, 'کد QR لینک اشتراک');
+        
+        if (resultsDiv.classList.contains('hidden')) {
+            resultsDiv.classList.remove('hidden');
+            setTimeout(() => { resultsDiv.style.opacity = 1; resultsDiv.style.transform = 'translateY(0)'; }, 10);
+        }
+        setupTooltips();
+        setupEndpointEventListeners();
+    }
+
+    function renderEndpointContent(endpoint, isEditing = false) {
+        if (isEditing) {
+            return `
+                <div class="endpoint-content flex items-center gap-2 p-1 bg-gray-800 rounded-md">
+                    <input type="text" class="endpoint-edit-input ltr-input flex-grow bg-gray-600 border border-gray-500 text-white text-sm rounded-lg p-1.5" value="${escapeHtml(endpoint)}">
+                    <button class="save-endpoint-btn p-1.5 text-green-400 hover:text-green-300">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"></path></svg>
+                    </button>
+                    <button class="cancel-edit-endpoint-btn p-1.5 text-red-400 hover:text-red-300">
+                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.697a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                    </button>
+                </div>`;
+        }
+        return `
+            <div class="endpoint-content flex items-center gap-2 p-1 rounded-md hover:bg-gray-800/50 group">
+                <span class="endpoint-text ltr-code flex-grow text-white">${escapeHtml(endpoint)}</span>
+                <button class="edit-endpoint-btn p-1.5 text-yellow-400 hover:text-yellow-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"></path><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"></path></svg>
+                </button>
+                <button class="delete-endpoint-btn p-1.5 text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg>
+                </button>
+            </div>`;
+    }
+
+    function renderEndpointItem(endpoint) {
+        const li = document.createElement('li');
+        li.innerHTML = renderEndpointContent(endpoint, false);
+        return li.outerHTML;
+    }
+    
+    function populateTabs(configs) {
+        const tabContentArea = document.getElementById('tab-content-area');
+        if (!configs) {
+            tabContentArea.innerHTML = `<div class="p-4 text-center text-yellow-400">کانفیگ‌ها تولید نشدند. لطفاً لیست Endpoint را بررسی کنید.</div>`;
+            return;
+        }
+        const ifpmMode = document.getElementById('ifpm-select')?.value || 'm4';
+
+        const templates = [
+            { id: "subscription", title: "لینک اشتراک (برای NekoRay, V2RayN, Hiddify)", content: configs.subscription_text },
+            { id: "singbox", title: "Sing-Box (پروفایل JSON)", content: configs.singbox },
+            { id: "standard", title: "Standard WG", content: configs.standard },
+            { id: "amnezia", title: "AmneziaWG", content: configs.amnezia },
+            { id: "v2ray", title: "V2Ray-Core (Outbound)", content: configs.v2ray }
+        ];
+        
+        let html = '';
+        templates.forEach((data, index) => {
+            const isJitterTab = data.id === 'standard' || data.id === 'amnezia';
+            const isAllMode = isJitterTab && ifpmMode === 'all';
+            const colorClass = data.id === 'amnezia' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700';
+
+            let buttonsHtml, contentHtml;
+            const shareOptions = `<select class="shortener-select bg-gray-800 text-white text-xs p-1 rounded-md border border-gray-600">
+                <option value="shz.al">shz.al</option>
+                <option value="ttm.sh">ttm.sh</option>
+            </select>`;
+            
+            if (data.id === 'subscription') {
+                const firstLink = data.content.split('\n')[0];
+                buttonsHtml = `<p class="text-sm text-gray-400 mb-4">تمام اندپوینت‌ها با لایسنس خودکار در این لینک اشتراک قرار دارند. مناسب برای اکثر کلاینت‌ها.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+                    <button class="copy-btn flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-clipboard-text="${escape(firstLink)}"><span class="copy-btn-text">کپی اولین لینک</span></button>
+                    <button class="copy-btn flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-clipboard-text="${escape(data.content)}"><span class="copy-btn-text">کپی کل لینک‌ها</span></button>
+                    <button class="download-btn bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-download-content="${escape(data.content)}" data-filename="warp-subscription.txt">دانلود .txt</button>
+                    <button class="share-btn bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-share-content="${escape(data.content)}">ایجاد لینک اشتراک</button>
+                </div>`;
+                contentHtml = `<h4 class="font-semibold text-gray-300 mt-4 mb-2">پیش‌نمایش لینک‌ها:</h4>
+                <pre class="ltr-code bg-black/30 p-2 rounded-lg overflow-x-auto text-xs break-all max-h-[150px]"><code class="code-box">${escapeHtml(data.content.split('\n').slice(0, 5).join('\n'))}...</code></pre>`;
+            } else {
+                 buttonsHtml = `<div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 rtl:sm:space-x-reverse mb-2">
+                    <button class="copy-btn flex-1 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-clipboard-text="${escape(data.content)}"><span class="copy-btn-text">کپی</span></button>`;
+                
+                if (isJitterTab) { 
+                    buttonsHtml += `<button class="download-btn flex-1 ${colorClass} text-white font-semibold py-2 px-4 rounded-lg transition-colors ${isAllMode ? 'hidden' : ''}" data-download-content="${escape(data.content)}" data-filename="${data.id}-config.conf">دانلود .conf</button>`;
+                    buttonsHtml += `<button class="zip-download-btn flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors ${isAllMode ? '' : 'hidden'}" data-type="${data.id}">دانلود همه (ZIP)</button>`;
+                } else {
+                    buttonsHtml += `<button class="share-btn flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-share-content="${escape(data.content)}">اشتراک‌گذاری لینک</button>`;
+                }
+                buttonsHtml += `</div>`;
+                contentHtml = `<pre class="ltr-code bg-black/30 p-4 rounded-lg overflow-x-auto text-sm break-all max-h-[300px]"><code class="code-box">${syntaxHighlightJson(data.content)}</code></pre>`;
+            }
+             
+            html += `<div id="tab-${data.id}" class="tab-pane ${index !== 0 ? 'hidden opacity-0' : 'opacity-100'}">
+                <h3 class="font-semibold text-lg mb-2 text-pink-400">${data.title}</h3>
+                ${buttonsHtml}
+                <div class="share-result-container hidden mt-2">
+                     <div class="flex gap-2">
+                        <input type="text" readonly class="ltr-input flex-grow bg-black/30 border border-gray-600 rounded-md p-2 text-sm text-gray-300">
+                        ${ data.id !== 'standard' && data.id !== 'amnezia' ? shareOptions : '' }
+                        <button class="copy-link-btn flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold py-1 px-3 rounded-lg text-sm transition-colors"><span class="copy-btn-text">کپی</span></button>
+                    </div>
+                </div>
+                ${contentHtml}
+            </div>`;
+        });
+        tabContentArea.innerHTML = html;
+    }
+
+    function updateQrCode(content, title) {
+        const qrcodeContainer = document.getElementById('qrcode'), qrcodeTitle = document.getElementById('qrcode-title'), qrcodeMessage = document.getElementById('qrcode-message');
+        qrcodeTitle.textContent = title;
+        if (content && content.length < 2000) {
+            qrcodeContainer.innerHTML = '';
+            new QRCode(qrcodeContainer, { text: content, width: 180, height: 180, colorDark: "#0c0a1a", colorLight: "#ffffff", correctLevel : QRCode.CorrectLevel.L });
+            qrcodeContainer.classList.remove('hidden');
+            qrcodeMessage.classList.add('hidden');
+        } else {
+            qrcodeContainer.innerHTML = '';
+            qrcodeContainer.classList.add('hidden');
+            qrcodeMessage.textContent = content ? "محتوای کانفیگ برای کد QR طولانی است." : "این فرمت برای اسکن با کد QR مناسب نیست.";
+            qrcodeMessage.classList.remove('hidden');
+        }
+    }
+
+    // --- APPLICATION FLOW & STATE MANAGEMENT ---
+    async function startNewGeneration(button) {
+        const originalText = button.innerHTML;
+        button.disabled = true; button.innerHTML = loadingButtonHTML;
+        try {
+            const newAccount = await fetchAccountFromWorker();
+            let name = prompt("یک نام برای این کانفیگ جدید وارد کنید:", `Config ${new Date().toLocaleString('fa-IR')}`);
+            if (!name) name = `Config ${new Date().toLocaleString('fa-IR')}`;
+            const accounts = getSavedAccounts();
+            accounts.push({ name, account: newAccount });
+            saveAccounts(accounts);
+            setStatus("کانفیگ جدید ذخیره شد! در حال بارگذاری...");
+            await initialize();
+            savedConfigsDropdown.selectedIndex = accounts.length - 1;
+            await loadSelectedConfig(false);
+        } catch (error) {
+            console.error("New generation process failed:", error);
+            setStatus(`خطا: ${error.message}. لطفاً دوباره تلاش کنید.`, true);
+        } finally {
+            button.disabled = false; button.innerHTML = originalText;
+            setTimeout(() => setStatus(""), 4000);
+        }
+    }
+
+    async function loadSelectedConfig(showStatus = true) {
+        const selectedIndex = savedConfigsDropdown.selectedIndex;
+        const accounts = getSavedAccounts();
+        if (selectedIndex < 0 || selectedIndex >= accounts.length) { resultsDiv.classList.add('hidden'); return; }
+        
+        currentAccount = accounts[selectedIndex].account;
+        const allEndpoints = await fetchAllEndpoints();
+        
+        const advancedSettings = {
+            dns: DEFAULT_DNS,
+            urlTestUrl: DEFAULT_URL_TEST,
+            urlTestInterval: DEFAULT_URL_TEST_INTERVAL,
+            enableWoW: false,
+            configName: 'WG',
+            jitter: { ...DEFAULT_JITTER }
+        };
+        const uniqueEndpoints = [...new Set(allEndpoints)];
+        generatedConfigs = await generateAllFormats(currentAccount, uniqueEndpoints, advancedSettings);
+        renderResults(generatedConfigs, uniqueEndpoints, advancedSettings);
+        if (showStatus) setTimeout(() => setStatus(""), 3000);
+    }
+    
+    async function updateAndRenderAllConfigs() {
+        if (!currentAccount) return;
+        const getEl = (id) => document.getElementById(id);
+        const settings = {
+            dns: getEl('dns-input')?.value || DEFAULT_DNS,
+            urlTestUrl: getEl('url-test-input')?.value || DEFAULT_URL_TEST,
+            urlTestInterval: parseInt(getEl('url-test-interval-input')?.value) || DEFAULT_URL_TEST_INTERVAL,
+            enableWoW: getEl('wow-toggle')?.checked || false,
+            configName: getEl('config-name-input')?.value || 'WG',
+            jitter: {
+                ifp: getEl('ifp-select')?.value || DEFAULT_JITTER.ifp,
+                ifps: getEl('ifps-select')?.value || DEFAULT_JITTER.ifps,
+                ifpd: getEl('ifpd-select')?.value || DEFAULT_JITTER.ifpd,
+                ifpm: getEl('ifpm-select')?.value || DEFAULT_JITTER.ifpm,
+            }
+        };
+
+        const allEndpoints = Array.from(document.querySelectorAll('#endpoints-list .endpoint-text')).map(span => span.textContent.trim());
+        const uniqueEndpoints = [...new Set(allEndpoints)];
+        
+        generatedConfigs = await generateAllFormats(currentAccount, uniqueEndpoints, settings);
+        populateTabs(generatedConfigs);
+        
+        const activeTab = document.querySelector('.tab-btn.border-pink-500');
+        if (activeTab) {
+             document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden', 'opacity-0'));
+             const activePane = document.querySelector(activeTab.dataset.tabTarget);
+             if (activePane) {
+                 activePane.classList.remove('hidden');
+                 requestAnimationFrame(() => activePane.classList.remove('opacity-0'));
+             }
+        }
+    }
+
+    function showManagerUI(accounts) {
+        firstTimeGeneratorDiv.classList.add('hidden');
+        configManagerDiv.classList.remove('hidden');
+        savedConfigsDropdown.innerHTML = '';
+        accounts.forEach((acc, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = acc.name;
+            savedConfigsDropdown.appendChild(option);
+        });
+    }
+
+    async function initialize() {
+        const accounts = getSavedAccounts();
+        if (accounts.length > 0) {
+            showManagerUI(accounts);
+            await loadSelectedConfig(false);
+        } else {
+            firstTimeGeneratorDiv.classList.remove('hidden');
+            configManagerDiv.classList.add('hidden');
+            resultsDiv.classList.add('hidden');
+        }
+    }
+    
+    function setupTooltips() {
+        document.querySelectorAll('.tooltip-icon').forEach(icon => {
+            icon.addEventListener('mouseenter', () => {
+                Swal.fire({
+                    title: icon.dataset.tooltip,
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true,
+                });
+            });
+        });
+    }
+
+    // --- EVENT LISTENERS ---
+    generateBtn.addEventListener('click', e => startNewGeneration(e.currentTarget));
+    generateNewBtn.addEventListener('click', e => startNewGeneration(e.currentTarget));
+    savedConfigsDropdown.addEventListener('change', () => loadSelectedConfig());
+    updateEndpointsBtn.addEventListener('click', () => loadSelectedConfig());
+
+    deleteConfigBtn.addEventListener('click', () => {
+        const selectedIndex = savedConfigsDropdown.selectedIndex;
+        if (selectedIndex < 0) return;
+        const accounts = getSavedAccounts();
+        const configName = accounts[selectedIndex].name;
+        
+        Swal.fire({
+            title: `حذف کانفیگ`,
+            text: `آیا از حذف "${configName}" مطمئن هستید؟ این عمل غیرقابل بازگشت است.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'بله، حذف کن',
+            cancelButtonText: 'انصراف'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                accounts.splice(selectedIndex, 1);
+                saveAccounts(accounts);
+                setStatus("کانفیگ حذف شد.");
+                Swal.fire('حذف شد!', 'کانفیگ با موفقیت حذف شد.', 'success');
+                initialize();
+            }
+        });
+    });
+
+    renameConfigBtn.addEventListener('click', () => {
+        const selectedIndex = savedConfigsDropdown.selectedIndex;
+        const accounts = getSavedAccounts();
+        if (selectedIndex < 0) return;
+        const oldName = accounts[selectedIndex].name;
+        Swal.fire({
+            title: 'تغییر نام کانفیگ',
+            input: 'text',
+            inputValue: oldName,
+            showCancelButton: true,
+            confirmButtonText: 'ذخیره',
+            cancelButtonText: 'انصراف',
+            inputValidator: (value) => {
+                if (!value) {
+                    return 'نام نمی‌تواند خالی باشد!'
+                }
+            }
+        }).then(result => {
+             if (result.isConfirmed && result.value) {
+                accounts[selectedIndex].name = result.value;
+                saveAccounts(accounts);
+                setStatus("نام کانفیگ تغییر کرد.");
+                savedConfigsDropdown.options[selectedIndex].textContent = result.value;
+                Swal.fire('موفق!', 'نام با موفقیت تغییر کرد.', 'success');
+            }
+        });
+    });
+    
+    backupBtn.addEventListener('click', () => {
+        const accounts = getSavedAccounts();
+        if (accounts.length === 0) {
+            setStatus("هیچ کانفیگی برای پشتیبان‌گیری وجود ندارد.", true);
+            return;
+        }
+        const dataStr = JSON.stringify(accounts, null, 2);
+        const blob = new Blob([dataStr], {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `warp_generator_backup_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setStatus("فایل پشتیبان با موفقیت ایجاد شد.");
+    });
+    
+    restoreBtn.addEventListener('click', () => restoreInput.click());
+    
+    restoreInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const restoredAccounts = JSON.parse(e.target.result);
+                if (!Array.isArray(restoredAccounts) || (restoredAccounts.length > 0 && (!restoredAccounts[0].name || !restoredAccounts[0].account))) {
+                   throw new Error('Invalid backup file format.');
+                }
+                saveAccounts(restoredAccounts);
+                setStatus("کانفیگ‌ها با موفقیت بازیابی شدند.");
+                Swal.fire('موفق!', 'کانفیگ‌ها با موفقیت بازیابی شدند.', 'success');
+                initialize();
+            } catch (err) {
+                setStatus("فایل پشتیبان نامعتبر است.", true);
+                Swal.fire('خطا!', 'فایل پشتیبان نامعتبر است.', 'error');
+            } finally {
+                event.target.value = null;
+            }
+        };
+        reader.readAsText(file);
+    });
+
+    resultsDiv.addEventListener('input', e => { if (['dns-input', 'url-test-input', 'url-test-interval-input', 'config-name-input', 'ifp-select', 'ifps-select', 'ifpd-select', 'ifpm-select'].includes(e.target.id)) { updateAndRenderAllConfigs(); } });
+    resultsDiv.addEventListener('change', e => { if (e.target.id === 'wow-toggle') { updateAndRenderAllConfigs(); } });
+
+    // --- Endpoint Manager Event Listeners ---
+    function setupEndpointEventListeners() {
+        const endpointsList = document.getElementById('endpoints-list');
+        const addEndpointBtn = document.getElementById('add-endpoint-btn');
+        const dropZone = document.getElementById('endpoint-drop-zone');
+        const fileInput = document.getElementById('endpoint-file-input');
+        
+        if (!endpointsList) return;
+
+        endpointsList.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+
+            const li = button.closest('li');
+            const contentDiv = li.querySelector('.endpoint-content');
+            if (button.classList.contains('delete-endpoint-btn')) {
+                li.remove();
+                updateAndRenderAllConfigs();
+            } else if (button.classList.contains('edit-endpoint-btn')) {
+                const currentText = li.querySelector('.endpoint-text').textContent;
+                contentDiv.innerHTML = renderEndpointContent(currentText, true).match(/<div class="endpoint-content.*?>(.*?)<\/div>/s)[1];
+                contentDiv.querySelector('input').focus();
+            } else if (button.classList.contains('save-endpoint-btn')) {
+                const newText = contentDiv.querySelector('.endpoint-edit-input').value.trim();
+                if (newText) {
+                    contentDiv.innerHTML = renderEndpointContent(newText, false).match(/<div class="endpoint-content.*?>(.*?)<\/div>/s)[1];
+                } else {
+                    li.remove(); // Remove if empty
+                }
+                updateAndRenderAllConfigs();
+            } else if (button.classList.contains('cancel-edit-endpoint-btn')) {
+                const originalText = contentDiv.querySelector('.endpoint-edit-input').defaultValue;
+                 contentDiv.innerHTML = renderEndpointContent(originalText, false).match(/<div class="endpoint-content.*?>(.*?)<\/div>/s)[1];
+            }
+        });
+        
+        addEndpointBtn.addEventListener('click', () => {
+            const newItem = document.createElement('li');
+            newItem.innerHTML = renderEndpointContent('', true);
+            endpointsList.appendChild(newItem);
+            newItem.querySelector('input').focus();
+        });
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drop-zone-over'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drop-zone-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drop-zone-over');
+            if (e.dataTransfer.files.length > 0) handleEndpointFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleEndpointFile(e.target.files[0]);
+            e.target.value = null;
+        });
+    }
+
+    function handleEndpointFile(file) {
+        const extension = file.name.split('.').pop().toLowerCase();
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            try {
+                let endpoints = [];
+                if (extension === 'txt') {
+                    endpoints = e.target.result.split('\n').map(line => line.trim()).filter(Boolean);
+                } else if (extension === 'csv') {
+                    endpoints = e.target.result
+                        .split('\n')
+                        .slice(1) // Skip header
+                        .map(line => line.split(',')[0].trim()) // Get first column
+                        .filter(Boolean);
+                } else if (extension === 'xlsx') {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    endpoints = json
+                        .slice(1) // Skip header
+                        .map(row => (row && row[0]) ? String(row[0]).trim() : null)
+                        .filter(Boolean);
+                } else {
+                    Swal.fire('خطا', 'فرمت فایل پشتیبانی نمی‌شود. لطفاً از .txt, .csv, یا .xlsx استفاده کنید.', 'error');
+                    return;
+                }
+                
+                if (endpoints.length === 0) {
+                     Swal.fire('توجه', 'هیچ Endpoint معتبری در فایل یافت نشد.', 'warning');
+                } else {
+                    populateEndpointList(endpoints);
+                }
+            } catch (err) {
+                Swal.fire('خطا', 'فایل قابل پردازش نیست. لطفاً فرمت فایل را بررسی کنید.', 'error');
+                console.error("File processing error:", err);
+            }
+        };
+
+        if (extension === 'xlsx') {
+            reader.readAsArrayBuffer(file);
+        } else {
+            reader.readAsText(file);
+        }
+    }
+
+    function populateEndpointList(endpoints) {
+        const endpointsList = document.getElementById('endpoints-list');
+        if (!endpointsList) return;
+        endpointsList.innerHTML = endpoints.map(ep => renderEndpointItem(ep)).join('');
+        updateAndRenderAllConfigs();
+        setStatus(`${endpoints.length} Endpoint با موفقیت بارگذاری شد.`);
+    }
+
+    resultsDiv.addEventListener('click', async e => {
+        const target = e.target;
+        const button = target.closest('button');
+        if (button) {
+            if (button.classList.contains('copy-btn')) {
+                const text = unescape(button.dataset.clipboardText);
+                const textSpan = button.querySelector('.copy-btn-text');
+                const originalContent = textSpan ? textSpan.innerHTML : button.innerHTML;
+                navigator.clipboard.writeText(text).then(() => {
+                    if (textSpan) {
+                        textSpan.style.opacity = '0';
+                        setTimeout(() => {
+                            button.innerHTML = checkmarkIcon;
+                            setTimeout(() => button.innerHTML = `<span class="copy-btn-text">${originalContent}</span>`, 1500);
+                        }, 200);
+                    } else {
+                        button.innerHTML = checkmarkIcon;
+                        setTimeout(() => button.innerHTML = originalContent, 2000);
+                    }
+                });
+                return;
+            }
+            if (button.classList.contains('copy-link-btn')) {
+                const link = button.closest('.flex').querySelector('input').value;
+                const textSpan = button.querySelector('.copy-btn-text');
+                const originalContent = textSpan.innerHTML;
+                navigator.clipboard.writeText(link).then(() => {
+                     textSpan.style.opacity = '0';
+                     setTimeout(() => {
+                        button.innerHTML = checkmarkIcon;
+                        setTimeout(() => button.innerHTML = `<span class="copy-btn-text">${originalContent}</span>`, 1500);
+                    }, 200);
+                });
+                return;
+            }
+            if (button.classList.contains('download-btn')) { const content = unescape(button.dataset.downloadContent); const filename = button.dataset.filename; const blob = new Blob([content], { type: 'text/plain;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); document.body.removeChild(a); return; }
+            if (button.classList.contains('zip-download-btn')) {
+                const type = button.dataset.type;
+                const zip = new JSZip();
+                const modes = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6'];
+                const getEl = (id) => document.getElementById(id);
+                const settings = {
+                    dns: getEl('dns-input')?.value || DEFAULT_DNS,
+                    configName: getEl('config-name-input')?.value || 'WG',
+                    jitter: { ifp: getEl('ifp-select')?.value, ifps: getEl('ifps-select')?.value, ifpd: getEl('ifpd-select')?.value }
+                };
+                const allEndpoints = Array.from(document.querySelectorAll('#endpoints-list .endpoint-text')).map(span => span.textContent.trim());
+                
+                for (const mode of modes) {
+                    const result = await generateAllFormats(currentAccount, allEndpoints, { ...settings, jitter: { ...settings.jitter, ifpm: mode } });
+                    if(result) {
+                        const configContent = result[type];
+                        const baseName = type === 'amnezia' ? `${settings.configName}-Amnezia` : settings.configName;
+                        zip.file(`${baseName}-${mode}.conf`, configContent);
+                    }
+                }
+
+                zip.generateAsync({ type:"blob" }).then(content => {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(content);
+                    a.download = `${settings.configName}-all-modes.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                    document.body.removeChild(a);
+                });
+                return;
+            }
+            if (button.classList.contains('share-btn')) {
+                const content = unescape(button.dataset.shareContent);
+                const original = button.innerHTML;
+                const container = button.closest('.tab-pane').querySelector('.share-result-container');
+                const shortenerKey = container.querySelector('.shortener-select')?.value || 'shz.al';
+                const client = shortenerClients[shortenerKey];
+
+                button.disabled = true; button.innerHTML = 'در حال اشتراک...';
+                try {
+                    const res = await client.uploadPaste(content, { expiration: '1h' });
+                    container.querySelector('input').value = res.url;
+                    container.classList.remove('hidden');
+                    const tabId = button.closest('.tab-pane').id;
+                    if (['tab-subscription', 'tab-singbox'].includes(tabId)) {
+                        updateQrCode(res.url, `کد QR لینک ${tabId.replace('tab-','')}`);
+                    }
+                } catch (err) {
+                    Swal.fire('خطا!', `اشتراک گذاری ناموفق بود: ${err.message}`, 'error');
+                } finally {
+                    button.disabled = false; button.innerHTML = original;
+                }
+                return;
+            }
+            if (button.id === 'smartJitterBtn') {
+                document.getElementById('ifp-select').value = RECOMMENDED_JITTER.ifp;
+                document.getElementById('ifps-select').value = RECOMMENDED_JITTER.ifps;
+                document.getElementById('ifpd-select').value = RECOMMENDED_JITTER.ifpd;
+                document.getElementById('ifpm-select').value = RECOMMENDED_JITTER.ifpm;
+                updateAndRenderAllConfigs();
+                return;
+            }
+            if (button.id === 'resetSettingsBtn') {
+                document.getElementById('dns-input').value = DEFAULT_DNS;
+                document.getElementById('url-test-input').value = DEFAULT_URL_TEST;
+                document.getElementById('url-test-interval-input').value = DEFAULT_URL_TEST_INTERVAL;
+                document.getElementById('config-name-input').value = 'WG';
+                document.getElementById('ifp-select').value = DEFAULT_JITTER.ifp;
+                document.getElementById('ifps-select').value = DEFAULT_JITTER.ifps;
+                document.getElementById('ifpd-select').value = DEFAULT_JITTER.ifpd;
+                document.getElementById('ifpm-select').value = DEFAULT_JITTER.ifpm;
+                document.getElementById('wow-toggle').checked = false;
+                updateAndRenderAllConfigs();
+                return;
+            }
+        }
+        if (target.classList.contains('tab-btn')) {
+            const active = ['border-pink-500', 'text-pink-400'], inactive = ['border-transparent', 'text-gray-400', 'hover:text-gray-300', 'hover:border-gray-500'];
+            document.querySelectorAll('.tab-btn').forEach(btn => { btn.classList.remove(...active); btn.classList.add(...inactive); });
+            target.classList.add(...active); target.classList.remove(...inactive);
+            
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden', 'opacity-0'));
+            const targetPane = document.querySelector(target.dataset.tabTarget);
+            targetPane.classList.remove('hidden');
+            requestAnimationFrame(() => targetPane.classList.remove('opacity-0'));
+            
+            if (!generatedConfigs) return;
+            const getInputLink = (tabId) => document.querySelector(`${tabId} .share-result-container input`)?.value;
+            
+            switch (target.dataset.tabTarget) {
+                case '#tab-standard': updateQrCode(generatedConfigs.standard, 'کد QR (Standard WG)'); break;
+                case '#tab-amnezia': updateQrCode(generatedConfigs.amnezia, 'کد QR (AmneziaWG)'); break;
+                case '#tab-singbox': updateQrCode(getInputLink('#tab-singbox') || configs.singbox, 'کد QR پروفایل Sing-Box'); break;
+                case '#tab-subscription': updateQrCode(getInputLink('#tab-subscription') || null, 'کد QR لینک اشتراک'); break;
+                case '#tab-v2ray': updateQrCode(null, 'کد QR (V2Ray-Core)'); break;
+                default: updateQrCode(null); break;
+            }
+        }
+    });
+
+    // --- Modal Listeners ---
+    const openModal = () => {
+        howToUseModal.classList.remove('hidden');
+        howToUseModal.classList.add('is-open');
+        modalContent.classList.add('is-open');
+    };
+
+    const closeModal = () => {
+        howToUseModal.classList.remove('is-open');
+        modalContent.classList.remove('is-open');
+        setTimeout(() => howToUseModal.classList.add('hidden'), 300);
+    };
+
+    howToUseBtn.addEventListener('click', () => {
+        const markdownContent = `
+# راهنمای استفاده و تنظیمات
+
+## مدیریت لیست Endpoint
+شما می‌توانید لیست Endpoint ها را به صورت کامل مدیریت کنید:
+- **افزودن:** با کلیک روی دکمه "افزودن Endpoint"، یک ردیف جدید برای وارد کردن آدرس جدید ایجاد می‌شود.
+- **ویرایش/حذف:** با هاور کردن روی هر Endpoint، دکمه‌های ویرایش و حذف ظاهر می‌شوند.
+- **ورود از فایل:** می‌توانید فایل‌های \`.txt\`، \`.csv\` یا \`.xlsx\` را مستقیماً به داخل کادر مشخص شده بکشید و رها کنید، یا با کلیک روی آن، فایل را انتخاب کنید. محتوای فایل جایگزین لیست فعلی خواهد شد.
+
+## تنظیمات نویز WARP (Jitter)
+این پارامترها به شما کمک می‌کنند ترافیک خود را مبهم‌سازی کرده و از شناسایی توسط سیستم‌های فیلترینگ جلوگیری کنید.
+
+-   **IFP:** تعداد بسته‌های نویز در هر ارتباط.
+-   **IFPS:** اندازه هر بسته نویز (به بایت).
+-   **IFPD:** تأخیر زمانی بین ارسال بسته‌های نویز (به میلی‌ثانیه).
+-   **IFPM:** حالت (پروتکل) تولید نویز.
+
+## تنظیمات پیشنهادی (Jitter هوشمند)
+برای عملکرد بهینه و متعادل، می‌توانید از دکمه "Jitter هوشمند" استفاده کنید که تنظیمات زیر را اعمال می‌کند:
+-   **IFP:** \`40-80\`
+-   **IFPS:** \`50-100\`
+-   **IFPD:** \`2-4\`
+-   **IFPM**: \`m3\` (مبتنی بر پروتکل HTTP/3)
+
+## پشتیبان گیری و بازیابی
+- **پشتیبان گیری:** با کلیک روی این دکمه، یک فایل JSON حاوی تمام پروفایل‌های ذخیره شده شما دانلود می‌شود. این فایل را در مکانی امن نگهداری کنید.
+- **بازیابی:** با کلیک روی این دکمه، می‌توانید فایل پشتیبان JSON را انتخاب کرده و تمام پروفایل‌های خود را بازیابی کنید.
+        `;
+        try {
+            howToUseContent.innerHTML = marked.parse(markdownContent);
+        } catch(err) {
+            howToUseContent.innerHTML = `<p class="text-red-400">خطا: فایل راهنما بارگذاری نشد.</p>`;
+        }
+        openModal();
+    });
+
+    closeModalBtn.addEventListener('click', closeModal);
+    howToUseModal.addEventListener('click', (e) => { if (e.target === howToUseModal) closeModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === "Escape" && howToUseModal.classList.contains('is-open')) closeModal(); });
+    
+    // --- INITIALIZE APP ---
+    initialize();
+});
+</script>
+</body>
+</html>
