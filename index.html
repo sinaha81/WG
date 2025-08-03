@@ -18,7 +18,7 @@
     <!-- SheetJS for reading XLSX files -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="httpshttps://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -147,8 +147,8 @@ tsParticles.load("particles-js", { fpsLimit: 60, particles: { number: { value: 5
 document.addEventListener('DOMContentLoaded', () => {
     // --- CONFIGURATION & CONSTANTS ---
     const STORAGE_KEY = 'warpGeneratorAccounts';
-    const DEFAULT_DNS = 'https://1.1.1.1/dns-query';
-    const DEFAULT_URL_TEST = 'https://www.gstatic.com/generate_204';
+    const DEFAULT_DNS = 'https://dns.google/dns-query';
+    const DEFAULT_URL_TEST = 'https://www.youtube.com/';
     const DEFAULT_URL_TEST_INTERVAL = 5; // In minutes
     const DEFAULT_JITTER = { ifp: '50-100', ifps: '50-100', ifpd: '3-6', ifpm: 'm3' };
     const RECOMMENDED_JITTER = { ifp: '40-80', ifps: '50-100', ifpd: '2-4', ifpm: 'm3' };
@@ -264,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function generateAllFormats(account, allEndpoints, settings) {
-        setStatus("در حال تولید کانفیگ‌ها...");
+        setStatus("در حال دریافت لایسنس‌ها برای هر کانفیگ...");
         const primaryEndpoint = allEndpoints[0] || '';
         if (!primaryEndpoint) {
              setStatus("خطا: حداقل یک Endpoint مورد نیاز است.", true);
@@ -276,17 +276,19 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let allStandardConfs = '', allAmneziaConfs = '';
 
+        const singleLicense = await fetchRandomLicense();
+
         for (const mode of modesToGenerate) {
             const baseName = settings.configName || 'WG';
             const connType = settings.enableWoW ? 'WoW' : 'WARP';
             const finalConfigName = `${baseName}-${connType}-Std-1-${primaryEndpoint}`;
 
-            let standardConf = `[Interface]\nPrivateKey = ${account.privateKey}\nAddress = ${account.v4}/32, ${account.v6}/128\nDNS = 8.8.8.8\nMTU = 1280\n\n[Peer]\nPublicKey = ${account.peerPublicKey}\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = ${primaryEndpoint}`;
+            let standardConf = `[Interface]\nPrivateKey = ${account.privateKey}\nAddress = ${account.v4}/32, ${account.v6}/128\nDNS = ${settings.dns}\nMTU = 1280\n\n[Peer]\nPublicKey = ${account.peerPublicKey}\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = ${primaryEndpoint}`;
             standardConf += `\n\n# name = ${finalConfigName}\n# ifp = ${jitter.ifp}\n# ifps = ${jitter.ifps}\n# ifpd = ${jitter.ifpd}\n# ifpm = ${mode}`;
             allStandardConfs += standardConf + (modesToGenerate.length > 1 ? '\n\n# ===================================\n\n' : '');
 
             const amneziaName = `${baseName}-${connType}-Amnezia-1-${primaryEndpoint}`;
-            let amneziaConf = `[Interface]\nPrivateKey = ${account.privateKey}\nAddress = ${account.v4}/32, ${account.v6}/128\nDNS = 8.8.8.8\nMTU = 1280\nJc = 4\nJmin = 40\nJmax = 70\n\n[Peer]\nPublicKey = ${account.peerPublicKey}\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = ${primaryEndpoint}`;
+            let amneziaConf = `[Interface]\nPrivateKey = ${account.privateKey}\nAddress = ${account.v4}/32, ${account.v6}/128\nDNS = ${settings.dns}\nMTU = 1280\nJc = 4\nJmin = 40\nJmax = 70\n\n[Peer]\nPublicKey = ${account.peerPublicKey}\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = ${primaryEndpoint}`;
             amneziaConf += `\n\n# name = ${amneziaName}\n# ifp = ${jitter.ifp}\n# ifps = ${jitter.ifps}\n# ifpd = ${jitter.ifpd}\n# ifpm = ${mode}`;
             allAmneziaConfs += amneziaConf + (modesToGenerate.length > 1 ? '\n\n# ===================================\n\n' : '');
         }
@@ -304,89 +306,119 @@ document.addEventListener('DOMContentLoaded', () => {
             subscriptionLinks += finalLink + '\n';
         });
 
-        const buildSingboxJsonTemplate = () => {
+        const buildJsonTemplate = () => {
              const template = {
-                "log": { "loglevel": "warning" }, "dns": { "servers": [ { "tag": "proxy-dns", "address": settings.dns, "detour": "proxy" }, { "tag": "direct-dns", "address": "1.1.1.1", "detour": "direct" }, ], "rules": [ { "rule_set": ["geosite-ir"], "server": "direct-dns" }, { "rule_set": ["geoip-ir"], "server": "direct-dns" }, { "outbound": "any", "server": "proxy-dns" } ], "strategy": "prefer_ipv4" },
-                "inbounds": [ { "type": "tun", "tag": "tun-in", "interface_name": "tun0", "inet4_address": "172.19.0.1/30", "mtu": 1280, "auto_route": true, "strict_route": true, "sniff": true }, { "type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": 2080 } ],
-                "outbounds": [ { "type": "selector", "tag": "proxy", "outbounds": ["auto", "direct"], "default": "auto" }, { "type": "urltest", "tag": "auto", "outbounds": [], "url": settings.urlTestUrl, "interval": `${urlTestIntervalInSeconds}s` }, { "type": "direct", "tag": "direct" }, { "type": "dns", "tag": "dns-out" } ],
-                "route": { "rule_set": [ { "tag": "geoip-ir", "type": "remote", "format": "binary", "url": "https://cdn.jsdelivr.net/gh/chocolate4u/Iran-sing-box-rules@rule-set/geoip-ir.srs" }, { "tag": "geosite-ir", "type": "remote", "format": "binary", "url": "https://cdn.jsdelivr.net/gh/chocolate4u/Iran-sing-box-rules@rule-set/geosite-ir.srs" } ], "rules": [ { "protocol": "dns", "outbound": "dns-out" }, { "rule_set": ["geoip-ir", "geosite-ir"], "outbound": "direct" } ], "final": "proxy" }
+                "log": { "loglevel": "warning" },
+                "dns": {
+                    "servers": [
+                        { "tag": "proxy-dns", "address": settings.dns, "detour": "proxy" },
+                        { "tag": "direct-dns", "address": "1.1.1.1", "detour": "direct" },
+                    ],
+                    "rules": [
+                        { "rule_set": ["geosite-ir"], "server": "direct-dns" },
+                        { "rule_set": ["geoip-ir"], "server": "direct-dns" },
+                        { "outbound": "any", "server": "proxy-dns" }
+                    ], "strategy": "prefer_ipv4"
+                },
+                "inbounds": [
+                    { "type": "tun", "tag": "tun-in", "interface_name": "tun0", "inet4_address": "172.19.0.1/30", "mtu": 1280, "auto_route": true, "strict_route": true, "sniff": true },
+                    { "type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": 2080 }
+                ],
+                "outbounds": [
+                    { "type": "selector", "tag": "proxy", "outbounds": ["auto", "direct"], "default": "auto" },
+                    { "type": "urltest", "tag": "auto", "outbounds": [], "url": settings.urlTestUrl, "interval": `${urlTestIntervalInSeconds}s` },
+                    { "type": "direct", "tag": "direct" },
+                    { "type": "dns", "tag": "dns-out" }
+                ],
+                "route": {
+                    "rule_set": [
+                        { "tag": "geoip-ir", "type": "remote", "format": "binary", "url": "https://cdn.jsdelivr.net/gh/chocolate4u/Iran-sing-box-rules@rule-set/geoip-ir.srs" },
+                        { "tag": "geosite-ir", "type": "remote", "format": "binary", "url": "https://cdn.jsdelivr.net/gh/chocolate4u/Iran-sing-box-rules@rule-set/geosite-ir.srs" }
+                    ],
+                    "rules": [
+                        { "protocol": "dns", "outbound": "dns-out" },
+                        { "rule_set": ["geoip-ir", "geosite-ir"], "outbound": "direct" }
+                    ], "final": "proxy"
+                }
             };
             const urltestOutbound = template.outbounds.find(o => o.tag === 'auto');
             allEndpoints.forEach(ep => {
                 if (!ep.includes(':')) return;
                 const [server, port] = ep.split(':');
-                const wireguardOutbound = { "type": "wireguard", "tag": `(WARP) ${ep}`, "server": server, "server_port": parseInt(port), "local_address": [`${account.v4}/32`, `${account.v6}/128`], "private_key": account.privateKey, "peer_public_key": account.peerPublicKey, "reserved": account.reserved, "mtu": 1280 };
+                const wireguardOutbound = {
+                    "type": "wireguard", "tag": `(WARP) ${ep}`,
+                    "server": server, "server_port": parseInt(port),
+                    "local_address": [`${account.v4}/32`, `${account.v6}/128`],
+                    "private_key": account.privateKey, "peer_public_key": account.peerPublicKey,
+                    "reserved": account.reserved, "mtu": 1280
+                };
                 template.outbounds.push(wireguardOutbound);
                 urltestOutbound.outbounds.push(`(WARP) ${ep}`);
             });
             return template;
         };
-        const singboxTemplate = buildSingboxJsonTemplate();
+
+        const singboxTemplate = buildJsonTemplate();
         
-        const v2rayConfigString = JSON.stringify({
-          "dns": { "servers": [ "8.8.8.8" ] }, "inbounds": [ { "port": 10808, "listen": "127.0.0.1", "protocol": "socks", "settings": { "auth": "noauth", "udp": true } } ],
-          "outbounds": [ { "protocol": "wireguard", "settings": { "secretKey": account.privateKey, "address": [ `${account.v4}/32`, `${account.v6}/128` ], "peers": [ { "publicKey": account.peerPublicKey, "endpoint": primaryEndpoint } ], "mtu": 1280, "reserved": account.reserved }, "tag": "proxy" }, { "protocol": "freedom", "tag": "direct" }, { "protocol": "blackhole", "tag": "block" } ],
-          "routing": { "rules": [ { "type": "field", "ip": [ "geoip:ir" ], "outboundTag": "direct" } ], "domainStrategy": "AsIs" }
-        }, null, 2);
-
-        const buildV2rayFullProfileTemplate = () => {
-            const outbounds = [];
-            const proxyTags = [];
-            allEndpoints.forEach((ep, index) => {
-                if (!ep.includes(':')) return;
-                const tag = `prox-${index + 1}`;
-                proxyTags.push(tag);
-                outbounds.push({ 
-                    "protocol": "wireguard", 
-                    "tag": tag, 
-                    "settings": { 
-                        "secretKey": account.privateKey, 
-                        "address": [`${account.v4}/32`, `${account.v6}/128`], 
-                        "peers": [{ "publicKey": account.peerPublicKey, "endpoint": ep, "keepAlive": 25 }], 
-                        "mtu": 1280, 
-                        "reserved": account.reserved,
-                        "wnoise": "quic",
-                        "wnoisecount": jitter.ifp,
-                        "wnoisedelay": jitter.ifpd,
-                        "wpayloadsize": jitter.ifps
-                    } 
-                });
-            });
-            const balancer = { "tag": "balancer", "protocol": "balancer", "settings": { "selector": proxyTags, "strategy": { "type": "leastPing" } } };
-            const selector = { "tag": "proxy", "protocol": "selector", "settings": { "outbounds": ["balancer", "direct", ...proxyTags], "default": "balancer" } };
-            outbounds.unshift(selector, balancer, { "protocol": "dns", "tag": "dns-out" }, { "protocol": "freedom", "tag": "direct" }, { "protocol": "blackhole", "tag": "block" });
-
-            return {
-                "log": { "loglevel": "warning" },
-                "dns": { 
-                    "servers": [ { "address": "fakedns" }, settings.dns, "1.1.1.1" ],
-                    "hosts": { "geosite:category-ads-all": "127.0.0.1" }
-                },
-                "fakedns": [{ "ipPool": "198.18.0.0/15", "poolSize": 65535 }],
-                "inbounds": [
-                    { "port": 10808, "listen": "127.0.0.1", "protocol": "socks", "settings": { "auth": "noauth", "udp": true, "userLevel": 0 }, "sniffing": { "enabled": true, "destOverride": ["http", "tls", "fakedns"] }, "tag": "socks-in" },
-                    { "port": 10853, "listen": "127.0.0.1", "protocol": "dokodemo-door", "settings": { "address": "1.1.1.1", "network": "tcp,udp", "port": 53 }, "tag": "dns-in" }
-                ],
-                "outbounds": outbounds,
-                "routing": {
-                    "domainStrategy": "IPIfNonMatch",
-                    "rules": [
-                        { "type": "field", "inboundTag": ["dns-in"], "outboundTag": "dns-out" },
-                        { "type": "field", "ip": ["fakedns"], "outboundTag": "proxy" },
-                        { "type": "field", "ip": ["geoip:ir"], "outboundTag": "direct" },
-                        { "type": "field", "domain": ["geosite:ir"], "outboundTag": "direct" },
-                        { "type": "field", "domain": ["geosite:category-ads-all"], "outboundTag": "block" }
-                    ],
-                    "final": "proxy"
-                },
-                "policy": {
-                    "levels": { "0": { "handshake": 4, "connIdle": 300, "uplinkOnly": 1, "downlinkOnly": 1 } },
-                    "system": { "statsInboundUplink": true, "statsInboundDownlink": true }
-                },
-                "observatory": { "subjectSelector": ["^prox-"], "probeUrl": "https://www.gstatic.com/generate_204", "probeInterval": "1m" }
-            };
+        const currentDate = new Date().toISOString().split('T')[0];
+        const v2rayConfigObject = {
+          "dns": {
+            "hosts": {
+              "ext:geosite_c4u.dat:category-ads-all": "127.0.0.1", "ext:geosite_c4u.dat:nsfw": "127.0.0.1",
+              "ext:geosite_c4u.dat:malware": "127.0.0.1", "ext:geosite_c4u.dat:phishing": "127.0.0.1",
+              "ext:geosite_c4u.dat:cryptominers": "127.0.0.1", "domain:googleapis.cn": "googleapis.com"
+            },
+            "servers": [
+              { "address": "fakedns", "domains": [ "geosite:cn", "regexp:.*\\.ir$", "regexp:.*\\.xn--mgba3a4f16a$", "ext:geosite_c4u.dat:ir", "geosite:private" ] },
+              settings.dns
+            ]
+          },
+          "fakedns": [ { "ipPool": "198.18.0.0/15", "poolSize": 10000 } ],
+          "inbounds": [
+            { "port": 10808, "protocol": "socks", "settings": { "auth": "noauth", "udp": true, "userLevel": 8 }, "sniffing": { "destOverride": [ "http", "tls", "fakedns" ], "enabled": true }, "tag": "socks" },
+            { "port": 10809, "protocol": "http", "settings": { "userLevel": 8 }, "tag": "http" },
+            { "listen": "127.0.0.1", "port": 10853, "protocol": "dokodemo-door", "settings": { "address": "1.1.1.1", "network": "tcp,udp", "port": 53 }, "tag": "dns-in" }
+          ],
+          "log": { "loglevel": "warning" },
+          "outbounds": [
+            {
+              "mux": { "concurrency": -1, "enabled": false, "xudpConcurrency": 8, "xudpProxyUDP443": "" },
+              "protocol": "wireguard",
+              "settings": {
+                "address": [ `${account.v4}/32`, `${account.v6}/128` ],
+                "mtu": 1280,
+                "peers": [ { "endpoint": primaryEndpoint, "keepAlive": 5, "preSharedKey": "", "publicKey": account.peerPublicKey } ],
+                "reserved": account.reserved,
+                "secretKey": account.privateKey,
+                "wnoise": "quic",
+                "wnoisecount": jitter.ifp,
+                "wnoisedelay": jitter.ifpd,
+                "wpayloadsize": jitter.ifps
+              },
+              "tag": "proxy"
+            },
+            { "protocol": "freedom", "settings": { "domainStrategy": "UseIP" }, "tag": "direct" },
+            { "protocol": "blackhole", "settings": { "response": { "type": "http" } }, "tag": "block" },
+            { "protocol": "dns", "tag": "dns-out" }
+          ],
+          "policy": {
+            "levels": { "8": { "connIdle": 300, "downlinkOnly": 1, "handshake": 4, "uplinkOnly": 1 } },
+            "system": { "statsOutboundUplink": true, "statsOutboundDownlink": true }
+          },
+          "remarks": `W ${currentDate}`,
+          "routing": {
+            "domainStrategy": "IPIfNonMatch",
+            "rules": [
+              { "inboundTag": [ "dns-in" ], "outboundTag": "dns-out", "type": "field" },
+              { "domain": [ "regexp:.*\\.ir$", "regexp:.*\\.xn--mgba3a4f16a$", "ext:geosite_c4u.dat:ir", "geosite:private" ], "outboundTag": "direct", "type": "field" },
+              { "ip": [ "ext:geoip_c4u.dat:ir", "geoip:private" ], "outboundTag": "direct", "type": "field" },
+              { "domain": [ "ext:geosite_c4u.dat:category-ads-all", "ext:geosite_c4u.dat:nsfw", "ext:geosite_c4u.dat:malware", "ext:geosite_c4u.dat:phishing", "ext:geosite_c4u.dat:cryptominers" ], "outboundTag": "block", "type": "field" },
+              { "ip": [ "ext:geoip_c4u.dat:malware", "ext:geoip_c4u.dat:phishing", "10.10.34.34", "10.10.34.35", "10.10.34.36" ], "outboundTag": "block", "type": "field" }
+            ]
+          },
+          "stats": {}
         };
-        const v2rayFullProfileTemplate = buildV2rayFullProfileTemplate();
+        const v2rayConfigString = JSON.stringify(v2rayConfigObject, null, 2);
 
         setStatus("");
         return {
@@ -394,7 +426,6 @@ document.addEventListener('DOMContentLoaded', () => {
             amnezia: allAmneziaConfs.trim(),
             singbox: JSON.stringify(singboxTemplate, null, 2),
             v2ray: v2rayConfigString,
-            v2ray_full_profile: JSON.stringify(v2rayFullProfileTemplate, null, 2),
             subscription_text: subscriptionLinks.trim(),
         };
     }
@@ -495,7 +526,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm text-gray-400 border-transparent hover:text-gray-300 hover:border-gray-500" data-tab-target="#tab-standard">Standard WG</button>
                                 <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm text-gray-400 border-transparent hover:text-gray-300 hover:border-gray-500 mx-1" data-tab-target="#tab-amnezia">AmneziaWG</button>
                                 <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm text-gray-400 border-transparent hover:text-gray-300 hover:border-gray-500" data-tab-target="#tab-v2ray">V2Ray-Core</button>
-                                <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm text-gray-400 border-transparent hover:text-gray-300 hover:border-gray-500 ml-1" data-tab-target="#tab-v2ray-full">V2Ray Full</button>
                             </nav>
                         </div>
                         <div id="tab-content-area" class="relative"></div>
@@ -565,8 +595,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { id: "singbox", title: "Sing-Box (پروفایل JSON)", content: configs.singbox },
             { id: "standard", title: "Standard WG", content: configs.standard },
             { id: "amnezia", title: "AmneziaWG", content: configs.amnezia },
-            { id: "v2ray", title: "V2Ray-Core", content: configs.v2ray },
-            { id: "v2ray-full", title: "V2Ray Full Profile", content: configs.v2ray_full_profile }
+            { id: "v2ray", title: "V2Ray-Core (Outbound)", content: configs.v2ray }
         ];
         
         let html = '';
@@ -595,8 +624,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isJitterTab) { 
                     buttonsHtml += `<button class="download-btn flex-1 ${colorClass} text-white font-semibold py-2 px-4 rounded-lg transition-colors ${isAllMode ? 'hidden' : ''}" data-download-content="${escape(data.content)}" data-filename="${data.id}-config.conf">دانلود .conf</button>`;
                     buttonsHtml += `<button class="zip-download-btn flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors ${isAllMode ? '' : 'hidden'}" data-type="${data.id}">دانلود همه (ZIP)</button>`;
-                } else if (data.id === 'v2ray' || data.id === 'v2ray-full' || data.id === 'singbox') {
-                     buttonsHtml += `<button class="download-btn flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-download-content="${escape(data.content)}" data-filename="${data.id}-profile.json">دانلود .json</button>`;
                 } else {
                     buttonsHtml += `<button class="share-btn flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-share-content="${escape(data.content)}">اشتراک‌گذاری لینک</button>`;
                 }
@@ -727,6 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // NEW: Function to handle loading config from URL
     function loadConfigFromURL() {
         const urlParams = new URLSearchParams(window.location.search);
         const configData = urlParams.get('config');
@@ -745,23 +773,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         navigator.clipboard.writeText(decodedConfig).then(() => {
                            Swal.showValidationMessage('کانفیگ با موفقیت کپی شد!');
                         });
-                        return false; 
+                        return false; // Prevent modal from closing immediately
                     }
                 });
             } catch (error) {
                 console.error("Error decoding config from URL:", error);
                 Swal.fire('خطا', 'فرمت کانفیگ اشتراک‌گذاری شده در URL نامعتبر است.', 'error');
             }
+            // Clean the URL
             history.replaceState(null, '', window.location.pathname);
-            return true; 
+            return true; // Indicate that we loaded from URL
         }
-        return false;
+        return false; // Indicate that we did not load from URL
     }
 
     async function initialize(skipUrlCheck = false) {
         if (!skipUrlCheck) {
             const loadedFromUrl = loadConfigFromURL();
-            if (loadedFromUrl) return; 
+            if (loadedFromUrl) return; // Stop initialization if we are just showing a shared config
         }
         
         const accounts = getSavedAccounts();
@@ -1141,7 +1170,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 case '#tab-singbox': updateQrCode(getInputLink('#tab-singbox') || generatedConfigs.singbox, 'کد QR پروفایل Sing-Box'); break;
                 case '#tab-subscription': updateQrCode(getInputLink('#tab-subscription') || null, 'کد QR لینک اشتراک'); break;
                 case '#tab-v2ray': updateQrCode(generatedConfigs.v2ray, 'کد QR (V2Ray-Core)'); break;
-                case '#tab-v2ray-full': updateQrCode(generatedConfigs.v2ray_full_profile, 'کد QR (V2Ray Full)'); break;
                 default: updateQrCode(null); break;
             }
         }
