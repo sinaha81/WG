@@ -27,6 +27,8 @@
         .main-container { position: relative; z-index: 1; }
         .gradient-text { background-image: linear-gradient(120deg, #f093fb 0%, #f5576c 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
         .glass-card { background: rgba(23, 17, 48, 0.45); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1.5rem; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+        .config-card { background: rgba(23, 17, 48, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+        .config-card:hover { transform: translateY(-5px); box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45); }
         .code-box { color: #e5e7eb; }
         .code-box .string { color: #a5b4fc; }
         .code-box .key { color: #f472b6; }
@@ -47,20 +49,37 @@
         .modal-content.is-open { opacity: 1; transform: scale(1); }
         .modal-content:not(.is-open) { opacity: 0; transform: scale(0.95); }
 
-        .tab-pane { transition: opacity 0.35s ease-in-out; }
         .tooltip-icon { cursor: pointer; display: inline-block; margin-right: 5px; color: #9ca3af; font-weight: bold; }
-        .swal2-popup { font-family: 'Vazirmatn', sans-serif; direction: rtl; }
-        .swal2-textarea { direction: ltr; text-align: left; font-family: monospace; }
+        
+        /* SweetAlert2 Dark Theme */
+        .swal2-popup {
+            background: #171130 !important;
+            color: #f9fafb !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 1.5rem !important;
+        }
+        .swal2-title { color: #f9fafb !important; }
+        .swal2-html-container, .swal2-content { color: #d1d5db !important; }
+        .swal2-confirm {
+            background-image: linear-gradient(120deg, #f093fb 0%, #f5576c 100%) !important;
+            border: 0 !important;
+        }
+        .swal2-cancel { background-color: #4b5563 !important; }
+        .swal2-textarea {
+            background-color: rgba(0,0,0,0.3) !important;
+            color: #e5e7eb !important;
+            border: 1px solid #4a5568 !important;
+        }
+        #swal-qrcode { background: white; padding: 1rem; border-radius: 0.5rem; }
 
         .drop-zone { border: 2px dashed #4a5568; border-radius: 0.75rem; padding: 1.5rem; text-align: center; color: #a0aec0; cursor: pointer; transition: border-color 0.3s, background-color 0.3s; }
         .drop-zone-over { border-color: #f093fb; background-color: rgba(240, 147, 251, 0.1); }
 
-        /* Endpoint List Numbering */
         .endpoint-ol { list-style: none; counter-reset: endpoint-counter; padding-right: 1rem; }
         .endpoint-ol > li { counter-increment: endpoint-counter; display: flex; align-items: center; gap: 0.5rem; }
         .endpoint-ol > li::before {
             content: counter(endpoint-counter) ".";
-            color: #a0aec0; /* gray-500 */
+            color: #a0aec0;
             font-weight: 500;
             min-width: 1.5rem;
             text-align: right;
@@ -105,6 +124,7 @@
                         <div class="mt-4 pt-4 border-t border-white/20 flex flex-wrap justify-center gap-3">
                             <button id="backupBtn" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">پشتیبان‌گیری</button>
                             <button id="restoreBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">بازیابی</button>
+                            <button id="clearCacheBtn" class="bg-red-800 hover:bg-red-900 text-white font-semibold py-2 px-4 rounded-lg transition-colors">پاک کردن همه</button>
                             <input type="file" id="restoreInput" class="hidden" accept=".json">
                         </div>
                     </div>
@@ -171,6 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateEndpointsBtn = document.getElementById('updateEndpointsBtn');
     const renameConfigBtn = document.getElementById('renameConfigBtn');
     const deleteConfigBtn = document.getElementById('deleteConfigBtn');
+    const clearCacheBtn = document.getElementById('clearCacheBtn');
     const howToUseBtn = document.getElementById('howToUseBtn');
     const howToUseModal = document.getElementById('howToUseModal');
     const closeModalBtn = document.getElementById('closeModalBtn');
@@ -180,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const restoreBtn = document.getElementById('restoreBtn');
     const restoreInput = document.getElementById('restoreInput');
     const loadingButtonHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>در حال تولید...`;
-    const checkmarkIcon = `<svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+    const checkmarkIcon = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>`;
 
     // --- GLOBAL STATE ---
     let generatedConfigs = null;
@@ -192,6 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const setStatus = (message, isError = false) => { statusText.textContent = message; statusText.style.color = isError ? '#f87171' : '#9ca3af'; };
     const generateRandomString = (len) => Array.from({ length: len }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.charAt(Math.floor(Math.random() * 62))).join('');
     const escapeHtml = (text) => {
+        if (!text) return '';
         const p = document.createElement('p');
         p.textContent = text;
         return p.innerHTML;
@@ -275,8 +297,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const modesToGenerate = jitter.ifpm === 'all' ? ['m1', 'm2', 'm3', 'm4', 'm5', 'm6'] : [jitter.ifpm];
         
         let allStandardConfs = '', allAmneziaConfs = '';
-
-        const singleLicense = await fetchRandomLicense();
 
         for (const mode of modesToGenerate) {
             const baseName = settings.configName || 'WG';
@@ -440,9 +460,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         resultsDiv.innerHTML = `
             <div class="glass-card p-4 sm:p-6 md:p-8 mt-8 shadow-2xl">
-                <h2 class="text-2xl font-bold mb-6 text-white text-center">کانفیگ‌های شما آماده است!</h2>
+                <h2 class="text-2xl font-bold mb-6 text-white text-center">تنظیمات و خروجی‌ها</h2>
                 
-                <div class="mb-6 bg-black/20 p-4 rounded-xl border border-white/10 transition-all">
+                <div class="mb-8 bg-black/20 p-4 rounded-xl border border-white/10">
                     <h3 class="font-semibold text-lg text-white select-none mb-4">تنظیمات پیشرفته</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                         <div>
@@ -463,7 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
 
                         <div class="md:col-span-2 mt-4 pt-4 border-t border-white/10">
-                            <details id="jitter-settings" class="bg-black/10 p-4 rounded-xl border border-white/10 transition-all" open>
+                            <details id="jitter-settings" class="bg-black/10 p-4 rounded-xl border border-white/10" open>
                                 <summary class="font-semibold text-lg text-gray-200 cursor-pointer select-none">تنظیمات نویز (Jitter) و نام</summary>
                                 <div class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     <div>
@@ -509,6 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                                 <div class="mt-4 mb-2 flex flex-wrap justify-center gap-4">
                                     <a href="https://github.com/bia-pain-bache/BPB-Warp-Scanner/releases" target="_blank" rel="noopener noreferrer" class="font-bold text-blue-400 hover:text-blue-300 transition-colors">دانلود اسکنر Endpoint</a>
+                                    <button id="clearEndpointsBtn" class="font-bold text-yellow-400 hover:text-yellow-300 transition-colors">پاک کردن اندپوینت‌ها</button>
                                     <button id="resetSettingsBtn" class="font-bold text-red-400 hover:text-red-300 transition-colors">بازگشت به پیش‌فرض</button>
                                 </div>
                             </div>
@@ -516,32 +537,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-                    <div class="lg:col-span-2">
-                        <h3 class="text-xl font-bold mb-4 text-center text-gray-300">پیش‌نمایش و اشتراک‌گذاری</h3>
-                        <div class="border-b border-white/10 mb-4">
-                             <nav class="flex flex-wrap -mb-px justify-center sm:justify-start" aria-label="Tabs">
-                                <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm border-pink-500 text-pink-400" data-tab-target="#tab-subscription">اشتراک</button>
-                                <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm text-gray-400 border-transparent hover:text-gray-300 hover:border-gray-500 mx-1" data-tab-target="#tab-singbox">Sing-Box</button>
-                                <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm text-gray-400 border-transparent hover:text-gray-300 hover:border-gray-500" data-tab-target="#tab-standard">Standard WG</button>
-                                <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm text-gray-400 border-transparent hover:text-gray-300 hover:border-gray-500 mx-1" data-tab-target="#tab-amnezia">AmneziaWG</button>
-                                <button class="uppercase tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm text-gray-400 border-transparent hover:text-gray-300 hover:border-gray-500" data-tab-target="#tab-v2ray">V2Ray-Core</button>
-                            </nav>
-                        </div>
-                        <div id="tab-content-area" class="relative"></div>
-                    </div>
-                    <div class="flex flex-col items-center justify-center pt-6 lg:pt-0">
-                        <h3 id="qrcode-title" class="font-semibold text-lg mb-2 text-pink-400"></h3>
-                        <div id="qrcode-wrapper" class="p-3 bg-white rounded-lg shadow-md">
-                            <div id="qrcode"></div>
-                            <p id="qrcode-message" class="hidden text-center text-gray-700 p-8 font-medium">این فرمت برای QR مناسب نیست.</p>
-                        </div>
-                    </div>
+                <div id="config-cards-container" class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Config cards will be rendered here by JavaScript -->
                 </div>
             </div>`;
         
-        populateTabs(configs);
-        updateQrCode(null, 'کد QR لینک اشتراک');
+        renderConfigCards(configs);
         
         if (resultsDiv.classList.contains('hidden')) {
             resultsDiv.classList.remove('hidden');
@@ -549,6 +550,84 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         setupTooltips();
         setupEndpointEventListeners();
+    }
+    
+    function renderConfigCards(configs) {
+        const container = document.getElementById('config-cards-container');
+        if (!container) return;
+        if (!configs) {
+            container.innerHTML = `<div class="md:col-span-2 p-4 text-center text-yellow-400">کانفیگ‌ها تولید نشدند. لطفاً لیست Endpoint را بررسی کنید.</div>`;
+            return;
+        }
+
+        const ifpmMode = document.getElementById('ifpm-select')?.value || 'm3';
+
+        const templates = [
+            { id: "subscription", title: "لینک اشتراک", subtitle: "مناسب برای NekoRay, V2RayN, Hiddify", content: configs.subscription_text },
+            { id: "singbox", title: "پروفایل Sing-Box", subtitle: "فایل کامل JSON برای Sing-Box", content: configs.singbox },
+            { id: "v2ray", title: "پروفایل V2Ray-Core", subtitle: "فایل کامل JSON برای V2Ray", content: configs.v2ray },
+            { id: "standard", title: "Standard WireGuard", subtitle: "برای کلاینت‌های استاندارد WG", content: configs.standard },
+            { id: "amnezia", title: "AmneziaWG", subtitle: "برای کلاینت AmneziaWG", content: configs.amnezia },
+        ];
+        
+        const ICONS = {
+            COPY: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>`,
+            DOWNLOAD: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>`,
+            QR: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h4v4H4zm0 12h4v4H4zm12-12h4v4h-4zm0 12h4v4h-4zM10 4h4v4h-4zM4 10h4v4H4zm6 6h4v4h-4zm6-6h4v4h-4zm-6 0h4v4h-4z"></path></svg>`,
+            ZIP: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`,
+            LINK: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>`
+        };
+
+        let html = '';
+        templates.forEach(data => {
+            const isJitterTab = data.id === 'standard' || data.id === 'amnezia';
+            const isAllMode = isJitterTab && ifpmMode === 'all';
+            let buttonsHtml, contentHtml, qrContent;
+            
+            const baseUrl = window.location.origin + window.location.pathname;
+
+            if (data.id === 'subscription') {
+                const firstFiveLinks = data.content.split('\n').slice(0, 5).join('\n');
+                qrContent = firstFiveLinks;
+                const shareableUrl = `${baseUrl}?config=${encodeURIComponent(firstFiveLinks)}`;
+                buttonsHtml = `
+                    <button class="copy-btn flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm" data-clipboard-text="${escape(firstFiveLinks)}">${ICONS.COPY}<span class="copy-btn-text">کپی ۵ لینک اول</span></button>
+                    <button class="download-btn flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm" data-download-content="${escape(data.content)}" data-filename="warp-subscription.txt">${ICONS.DOWNLOAD}<span>دانلود .txt</span></button>
+                    <button class="copy-btn flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm" data-clipboard-text="${escape(shareableUrl)}">${ICONS.LINK}<span>کپی لینک</span></button>
+                    <button class="show-qr-btn flex items-center justify-center gap-2 bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm" data-qr-content="${escape(qrContent)}" data-qr-title="QR کد ۵ لینک اول">${ICONS.QR}<span>نمایش QR</span></button>
+                `;
+                contentHtml = `<pre class="ltr-code bg-black/30 p-2 rounded-lg overflow-x-auto text-xs break-all max-h-[150px]"><code class="code-box">${escapeHtml(data.content)}</code></pre>`;
+            } else {
+                const shareableUrl = `${baseUrl}?config=${encodeURIComponent(data.content)}`;
+                qrContent = shareableUrl;
+                buttonsHtml = `
+                    <button class="copy-btn flex-1 flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm" data-clipboard-text="${escape(data.content)}">${ICONS.COPY}<span class="copy-btn-text">کپی</span></button>
+                `;
+                if (isJitterTab) { 
+                    buttonsHtml += `<button class="download-btn flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm ${isAllMode ? 'hidden' : ''}" data-download-content="${escape(data.content)}" data-filename="${data.id}-config.conf">${ICONS.DOWNLOAD}<span>دانلود .conf</span></button>`;
+                    buttonsHtml += `<button class="zip-download-btn flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm ${isAllMode ? '' : 'hidden'}" data-type="${data.id}">${ICONS.ZIP}<span>دانلود ZIP</span></button>`;
+                } else {
+                     buttonsHtml += `<button class="download-btn flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm" data-download-content="${escape(data.content)}" data-filename="${data.id}-config.json">${ICONS.DOWNLOAD}<span>دانلود .json</span></button>`;
+                }
+                buttonsHtml += `
+                    <button class="copy-btn flex-1 flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm" data-clipboard-text="${escape(shareableUrl)}">${ICONS.LINK}<span>کپی لینک</span></button>
+                    <button class="show-qr-btn flex-1 flex items-center justify-center gap-2 bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm" data-qr-content="${escape(qrContent)}" data-qr-title="QR کد ${data.title}">${ICONS.QR}<span>نمایش QR</span></button>
+                `;
+                contentHtml = `<pre class="ltr-code bg-black/30 p-4 rounded-lg overflow-x-auto text-sm break-all max-h-[200px]"><code class="code-box">${syntaxHighlightJson(data.content)}</code></pre>`;
+            }
+
+            html += `
+                <div class="config-card rounded-2xl p-4 flex flex-col space-y-4">
+                    <div class="border-b border-white/10 pb-3">
+                        <h3 class="font-bold text-lg text-pink-400">${data.title}</h3>
+                        <p class="text-sm text-gray-400">${data.subtitle}</p>
+                    </div>
+                    ${contentHtml}
+                    <div class="flex flex-wrap gap-2 pt-2 border-t border-white/10">${buttonsHtml}</div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
     }
 
     function renderEndpointContent(endpoint, isEditing = false) {
@@ -581,100 +660,52 @@ document.addEventListener('DOMContentLoaded', () => {
         li.innerHTML = renderEndpointContent(endpoint, false);
         return li.outerHTML;
     }
-    
-    function populateTabs(configs) {
-        const tabContentArea = document.getElementById('tab-content-area');
-        if (!configs) {
-            tabContentArea.innerHTML = `<div class="p-4 text-center text-yellow-400">کانفیگ‌ها تولید نشدند. لطفاً لیست Endpoint را بررسی کنید.</div>`;
-            return;
-        }
-        const ifpmMode = document.getElementById('ifpm-select')?.value || 'm4';
 
-        const templates = [
-            { id: "subscription", title: "لینک اشتراک (برای NekoRay, V2RayN, Hiddify)", content: configs.subscription_text },
-            { id: "singbox", title: "Sing-Box (پروفایل JSON)", content: configs.singbox },
-            { id: "standard", title: "Standard WG", content: configs.standard },
-            { id: "amnezia", title: "AmneziaWG", content: configs.amnezia },
-            { id: "v2ray", title: "V2Ray-Core (Outbound)", content: configs.v2ray }
-        ];
-        
-        let html = '';
-        templates.forEach((data, index) => {
-            const isJitterTab = data.id === 'standard' || data.id === 'amnezia';
-            const isAllMode = isJitterTab && ifpmMode === 'all';
-            const colorClass = data.id === 'amnezia' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700';
-
-            let buttonsHtml, contentHtml;
-            
-            if (data.id === 'subscription') {
-                const firstLink = data.content.split('\n')[0];
-                buttonsHtml = `<p class="text-sm text-gray-400 mb-4">تمام اندپوینت‌ها با لایسنس خودکار در این لینک اشتراک قرار دارند. مناسب برای اکثر کلاینت‌ها.</p>
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 mb-2">
-                    <button class="copy-btn flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-clipboard-text="${escape(firstLink)}"><span class="copy-btn-text">کپی اولین لینک</span></button>
-                    <button class="copy-btn flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-clipboard-text="${escape(data.content)}"><span class="copy-btn-text">کپی کل لینک‌ها</span></button>
-                    <button class="download-btn bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-download-content="${escape(data.content)}" data-filename="warp-subscription.txt">دانلود .txt</button>
-                    <button class="share-btn bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-share-content="${escape(data.content)}">ایجاد لینک اشتراک</button>
-                </div>`;
-                contentHtml = `<h4 class="font-semibold text-gray-300 mt-4 mb-2">پیش‌نمایش لینک‌ها:</h4>
-                <pre class="ltr-code bg-black/30 p-2 rounded-lg overflow-x-auto text-xs break-all max-h-[150px]"><code class="code-box">${escapeHtml(data.content.split('\n').slice(0, 5).join('\n'))}...</code></pre>`;
-            } else {
-                 buttonsHtml = `<div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 rtl:sm:space-x-reverse mb-2">
-                    <button class="copy-btn flex-1 flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-clipboard-text="${escape(data.content)}"><span class="copy-btn-text">کپی</span></button>`;
-                
-                if (isJitterTab) { 
-                    buttonsHtml += `<button class="download-btn flex-1 ${colorClass} text-white font-semibold py-2 px-4 rounded-lg transition-colors ${isAllMode ? 'hidden' : ''}" data-download-content="${escape(data.content)}" data-filename="${data.id}-config.conf">دانلود .conf</button>`;
-                    buttonsHtml += `<button class="zip-download-btn flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors ${isAllMode ? '' : 'hidden'}" data-type="${data.id}">دانلود همه (ZIP)</button>`;
-                } else {
-                    buttonsHtml += `<button class="share-btn flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-share-content="${escape(data.content)}">اشتراک‌گذاری لینک</button>`;
+    function showQrCodeModal(content, title) {
+        const lengthLimit = content.startsWith('http') ? 4000 : 2500;
+        if (content && content.length < lengthLimit) {
+            Swal.fire({
+                title: title,
+                html: `<div id="swal-qrcode-container" class="flex justify-center p-2"><div id="swal-qrcode"></div></div>`,
+                showCloseButton: true,
+                showConfirmButton: false,
+                width: 'auto',
+                padding: '1rem',
+                didOpen: () => {
+                    new QRCode(document.getElementById("swal-qrcode"), {
+                        text: content,
+                        width: 256,
+                        height: 256,
+                        colorDark: "#0c0a1a",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.L
+                    });
                 }
-                buttonsHtml += `</div>`;
-                contentHtml = `<pre class="ltr-code bg-black/30 p-4 rounded-lg overflow-x-auto text-sm break-all max-h-[300px]"><code class="code-box">${syntaxHighlightJson(data.content)}</code></pre>`;
-            }
-             
-            html += `<div id="tab-${data.id}" class="tab-pane ${index !== 0 ? 'hidden opacity-0' : 'opacity-100'}">
-                <h3 class="font-semibold text-lg mb-2 text-pink-400">${data.title}</h3>
-                ${buttonsHtml}
-                <div class="share-result-container hidden mt-2">
-                     <div class="flex gap-2">
-                        <input type="text" readonly class="ltr-input flex-grow bg-black/30 border border-gray-600 rounded-md p-2 text-sm text-gray-300">
-                        <button class="copy-link-btn flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold py-1 px-3 rounded-lg text-sm transition-colors"><span class="copy-btn-text">کپی</span></button>
-                    </div>
-                </div>
-                ${contentHtml}
-            </div>`;
-        });
-        tabContentArea.innerHTML = html;
-    }
-
-    function updateQrCode(content, title) {
-        const qrcodeContainer = document.getElementById('qrcode'), qrcodeTitle = document.getElementById('qrcode-title'), qrcodeMessage = document.getElementById('qrcode-message');
-        qrcodeTitle.textContent = title;
-        if (content && content.length < 2000) {
-            qrcodeContainer.innerHTML = '';
-            new QRCode(qrcodeContainer, { text: content, width: 180, height: 180, colorDark: "#0c0a1a", colorLight: "#ffffff", correctLevel : QRCode.CorrectLevel.L });
-            qrcodeContainer.classList.remove('hidden');
-            qrcodeMessage.classList.add('hidden');
+            });
         } else {
-            qrcodeContainer.innerHTML = '';
-            qrcodeContainer.classList.add('hidden');
-            qrcodeMessage.textContent = content ? "محتوای کانفیگ برای کد QR طولانی است." : "این فرمت برای اسکن با کد QR مناسب نیست.";
-            qrcodeMessage.classList.remove('hidden');
+            Swal.fire({
+                icon: 'error',
+                title: 'خطا',
+                text: 'محتوای این کانفیگ برای نمایش در کد QR بسیار طولانی است. لطفاً از دکمه کپی یا دانلود استفاده کنید.'
+            });
         }
     }
 
-    // --- APPLICATION FLOW & STATE MANAGEMENT ---
     async function startNewGeneration(button) {
         const originalText = button.innerHTML;
         button.disabled = true; button.innerHTML = loadingButtonHTML;
         try {
             const newAccount = await fetchAccountFromWorker();
-            let name = prompt("یک نام برای این کانفیگ جدید وارد کنید:", `Config ${new Date().toLocaleString('fa-IR')}`);
-            if (!name) name = `Config ${new Date().toLocaleString('fa-IR')}`;
+            const date = new Date();
+            const defaultName = `Config-${date.toLocaleDateString('fa-IR')}-${date.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`;
+            let name = prompt("یک نام برای این کانفیگ جدید وارد کنید:", defaultName);
+            if (!name) name = defaultName;
+
             const accounts = getSavedAccounts();
             accounts.push({ name, account: newAccount });
             saveAccounts(accounts);
             setStatus("کانفیگ جدید ذخیره شد! در حال بارگذاری...");
-            await initialize(true); // Pass true to skip loading from URL
+            await initialize(true);
             savedConfigsDropdown.selectedIndex = accounts.length - 1;
             await loadSelectedConfig(false);
         } catch (error) {
@@ -692,6 +723,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedIndex < 0 || selectedIndex >= accounts.length) { resultsDiv.classList.add('hidden'); return; }
         
         currentAccount = accounts[selectedIndex].account;
+        const profileName = accounts[selectedIndex].name;
+        
         const allEndpoints = await fetchAllEndpoints();
         
         const advancedSettings = {
@@ -699,7 +732,7 @@ document.addEventListener('DOMContentLoaded', () => {
             urlTestUrl: DEFAULT_URL_TEST,
             urlTestInterval: DEFAULT_URL_TEST_INTERVAL,
             enableWoW: false,
-            configName: 'WG',
+            configName: profileName,
             jitter: { ...DEFAULT_JITTER }
         };
         const uniqueEndpoints = [...new Set(allEndpoints)];
@@ -729,17 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const uniqueEndpoints = [...new Set(allEndpoints)];
         
         generatedConfigs = await generateAllFormats(currentAccount, uniqueEndpoints, settings);
-        populateTabs(generatedConfigs);
-        
-        const activeTab = document.querySelector('.tab-btn.border-pink-500');
-        if (activeTab) {
-             document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden', 'opacity-0'));
-             const activePane = document.querySelector(activeTab.dataset.tabTarget);
-             if (activePane) {
-                 activePane.classList.remove('hidden');
-                 requestAnimationFrame(() => activePane.classList.remove('opacity-0'));
-             }
-        }
+        renderConfigCards(generatedConfigs);
     }
 
     function showManagerUI(accounts) {
@@ -754,7 +777,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // NEW: Function to handle loading config from URL
     function loadConfigFromURL() {
         const urlParams = new URLSearchParams(window.location.search);
         const configData = urlParams.get('config');
@@ -771,26 +793,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     cancelButtonText: 'بستن',
                     preConfirm: () => {
                         navigator.clipboard.writeText(decodedConfig).then(() => {
-                           Swal.showValidationMessage('کانفیگ با موفقیت کپی شد!');
+                           Swal.fire({ title: 'موفق!', text: 'کانفیگ با موفقیت کپی شد.', icon: 'success', timer: 1500, showConfirmButton: false });
                         });
-                        return false; // Prevent modal from closing immediately
+                        return true; 
                     }
                 });
             } catch (error) {
                 console.error("Error decoding config from URL:", error);
                 Swal.fire('خطا', 'فرمت کانفیگ اشتراک‌گذاری شده در URL نامعتبر است.', 'error');
             }
-            // Clean the URL
             history.replaceState(null, '', window.location.pathname);
-            return true; // Indicate that we loaded from URL
+            return true;
         }
-        return false; // Indicate that we did not load from URL
+        return false;
     }
 
     async function initialize(skipUrlCheck = false) {
         if (!skipUrlCheck) {
             const loadedFromUrl = loadConfigFromURL();
-            if (loadedFromUrl) return; // Stop initialization if we are just showing a shared config
+            if (loadedFromUrl) return; 
         }
         
         const accounts = getSavedAccounts();
@@ -836,8 +857,6 @@ document.addEventListener('DOMContentLoaded', () => {
             text: `آیا از حذف "${configName}" مطمئن هستید؟ این عمل غیرقابل بازگشت است.`,
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
             confirmButtonText: 'بله، حذف کن',
             cancelButtonText: 'انصراف'
         }).then((result) => {
@@ -846,6 +865,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 saveAccounts(accounts);
                 setStatus("کانفیگ حذف شد.");
                 Swal.fire('حذف شد!', 'کانفیگ با موفقیت حذف شد.', 'success');
+                initialize(true);
+            }
+        });
+    });
+    
+    clearCacheBtn.addEventListener('click', () => {
+         Swal.fire({
+            title: `پاک کردن همه پروفایل‌ها`,
+            text: `آیا از حذف تمام پروفایل‌های ذخیره شده مطمئن هستید؟ این عمل غیرقابل بازگشت است.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'بله، همه را پاک کن',
+            cancelButtonText: 'انصراف'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                localStorage.removeItem(STORAGE_KEY);
+                setStatus("تمام پروفایل‌ها پاک شدند.");
+                Swal.fire('انجام شد!', 'تمام پروفایل‌ها با موفقیت پاک شدند.', 'success');
                 initialize(true);
             }
         });
@@ -875,7 +912,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setStatus("نام کانفیگ تغییر کرد.");
                 savedConfigsDropdown.options[selectedIndex].textContent = result.value;
                 Swal.fire('موفق!', 'نام با موفقیت تغییر کرد.', 'success');
-            }
+             }
         });
     });
     
@@ -927,15 +964,9 @@ document.addEventListener('DOMContentLoaded', () => {
     resultsDiv.addEventListener('input', e => { if (['dns-input', 'url-test-input', 'url-test-interval-input', 'config-name-input', 'ifp-select', 'ifps-select', 'ifpd-select', 'ifpm-select'].includes(e.target.id)) { updateAndRenderAllConfigs(); } });
     resultsDiv.addEventListener('change', e => { if (e.target.id === 'wow-toggle') { updateAndRenderAllConfigs(); } });
 
-    // --- Endpoint Manager Event Listeners ---
     function setupEndpointEventListeners() {
         const endpointsList = document.getElementById('endpoints-list');
-        const addEndpointBtn = document.getElementById('add-endpoint-btn');
-        const dropZone = document.getElementById('endpoint-drop-zone');
-        const fileInput = document.getElementById('endpoint-file-input');
-        
         if (!endpointsList) return;
-
         endpointsList.addEventListener('click', (e) => {
             const button = e.target.closest('button');
             if (!button) return;
@@ -954,7 +985,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (newText) {
                     contentDiv.innerHTML = renderEndpointContent(newText, false).match(/<div class="endpoint-content.*?>(.*?)<\/div>/s)[1];
                 } else {
-                    li.remove(); // Remove if empty
+                    li.remove();
                 }
                 updateAndRenderAllConfigs();
             } else if (button.classList.contains('cancel-edit-endpoint-btn')) {
@@ -963,13 +994,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        addEndpointBtn.addEventListener('click', () => {
+        document.getElementById('add-endpoint-btn').addEventListener('click', () => {
             const newItem = document.createElement('li');
             newItem.innerHTML = renderEndpointContent('', true);
             endpointsList.appendChild(newItem);
             newItem.querySelector('input').focus();
         });
 
+        const dropZone = document.getElementById('endpoint-drop-zone');
+        const fileInput = document.getElementById('endpoint-file-input');
         dropZone.addEventListener('click', () => fileInput.click());
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drop-zone-over'); });
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drop-zone-over'));
@@ -992,23 +1025,16 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 let endpoints = [];
                 if (extension === 'txt') {
-                    endpoints = e.target.result.split('\n').map(line => line.trim()).filter(Boolean);
+                    endpoints = e.target.result.split(/[\n\r]+/).map(line => line.trim()).filter(Boolean);
                 } else if (extension === 'csv') {
-                    endpoints = e.target.result
-                        .split('\n')
-                        .slice(1) // Skip header
-                        .map(line => line.split(',')[0].trim()) // Get first column
-                        .filter(Boolean);
+                    endpoints = e.target.result.split(/[\n\r]+/).slice(1).map(line => line.split(',')[0].trim()).filter(Boolean);
                 } else if (extension === 'xlsx') {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
                     const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                    endpoints = json
-                        .slice(1) // Skip header
-                        .map(row => (row && row[0]) ? String(row[0]).trim() : null)
-                        .filter(Boolean);
+                    endpoints = json.slice(1).map(row => (row && row[0]) ? String(row[0]).trim() : null).filter(Boolean);
                 } else {
                     Swal.fire('خطا', 'فرمت فایل پشتیبانی نمی‌شود. لطفاً از .txt, .csv, یا .xlsx استفاده کنید.', 'error');
                     return;
@@ -1041,137 +1067,104 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     resultsDiv.addEventListener('click', async e => {
-        const target = e.target;
-        const button = target.closest('button');
-        if (button) {
-            if (button.classList.contains('copy-btn')) {
-                const text = unescape(button.dataset.clipboardText);
-                const textSpan = button.querySelector('.copy-btn-text');
-                const originalContent = textSpan ? textSpan.innerHTML : button.innerHTML;
-                navigator.clipboard.writeText(text).then(() => {
-                    if (textSpan) {
-                        textSpan.style.opacity = '0';
-                        setTimeout(() => {
-                            button.innerHTML = checkmarkIcon;
-                            setTimeout(() => button.innerHTML = `<span class="copy-btn-text">${originalContent}</span>`, 1500);
-                        }, 200);
-                    } else {
-                        button.innerHTML = checkmarkIcon;
-                        setTimeout(() => button.innerHTML = originalContent, 2000);
-                    }
-                });
-                return;
-            }
-            if (button.classList.contains('copy-link-btn')) {
-                const link = button.closest('.flex').querySelector('input').value;
-                const textSpan = button.querySelector('.copy-btn-text');
-                const originalContent = textSpan.innerHTML;
-                navigator.clipboard.writeText(link).then(() => {
-                     textSpan.style.opacity = '0';
-                     setTimeout(() => {
-                        button.innerHTML = checkmarkIcon;
-                        setTimeout(() => button.innerHTML = `<span class="copy-btn-text">${originalContent}</span>`, 1500);
-                    }, 200);
-                });
-                return;
-            }
-            if (button.classList.contains('download-btn')) { const content = unescape(button.dataset.downloadContent); const filename = button.dataset.filename; const blob = new Blob([content], { type: 'text/plain;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); document.body.removeChild(a); return; }
-            if (button.classList.contains('zip-download-btn')) {
-                const type = button.dataset.type;
-                const zip = new JSZip();
-                const modes = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6'];
-                const getEl = (id) => document.getElementById(id);
-                const settings = {
-                    dns: getEl('dns-input')?.value || DEFAULT_DNS,
-                    configName: getEl('config-name-input')?.value || 'WG',
-                    jitter: { ifp: getEl('ifp-select')?.value, ifps: getEl('ifps-select')?.value, ifpd: getEl('ifpd-select')?.value }
-                };
-                const allEndpoints = Array.from(document.querySelectorAll('#endpoints-list .endpoint-text')).map(span => span.textContent.trim());
-                
-                for (const mode of modes) {
-                    const result = await generateAllFormats(currentAccount, allEndpoints, { ...settings, jitter: { ...settings.jitter, ifpm: mode } });
-                    if(result) {
-                        const configContent = result[type];
-                        const baseName = type === 'amnezia' ? `${settings.configName}-Amnezia` : settings.configName;
-                        zip.file(`${baseName}-${mode}.conf`, configContent);
-                    }
+        const button = e.target.closest('button');
+        if (!button) return;
+
+        if (button.classList.contains('copy-btn')) {
+            const text = unescape(button.dataset.clipboardText);
+            const textSpan = button.querySelector('span');
+            const originalIcon = button.querySelector('svg').outerHTML;
+            const originalText = textSpan ? textSpan.textContent : '';
+
+            navigator.clipboard.writeText(text).then(() => {
+                button.innerHTML = checkmarkIcon;
+                setTimeout(() => {
+                    button.innerHTML = originalIcon + (textSpan ? `<span>${originalText}</span>` : '');
+                }, 1500);
+            });
+        } 
+        else if (button.classList.contains('download-btn')) {
+            const content = unescape(button.dataset.downloadContent);
+            const filename = button.dataset.filename;
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            URL.revokeObjectURL(a.href);
+            document.body.removeChild(a);
+        } 
+        else if (button.classList.contains('zip-download-btn')) {
+            const type = button.dataset.type;
+            const zip = new JSZip();
+            const modes = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6'];
+            const getEl = (id) => document.getElementById(id);
+            const settings = {
+                dns: getEl('dns-input')?.value || DEFAULT_DNS,
+                configName: getEl('config-name-input')?.value || 'WG',
+                jitter: { ifp: getEl('ifp-select')?.value, ifps: getEl('ifps-select')?.value, ifpd: getEl('ifpd-select')?.value }
+            };
+            const allEndpoints = Array.from(document.querySelectorAll('#endpoints-list .endpoint-text')).map(span => span.textContent.trim());
+            
+            for (const mode of modes) {
+                const result = await generateAllFormats(currentAccount, allEndpoints, { ...settings, jitter: { ...settings.jitter, ifpm: mode } });
+                if(result) {
+                    const configContent = result[type];
+                    const baseName = type === 'amnezia' ? `${settings.configName}-Amnezia` : settings.configName;
+                    zip.file(`${baseName}-${mode}.conf`, configContent);
                 }
-
-                zip.generateAsync({ type:"blob" }).then(content => {
-                    const a = document.createElement('a');
-                    a.href = URL.createObjectURL(content);
-                    a.download = `${settings.configName}-all-modes.zip`;
-                    document.body.appendChild(a);
-                    a.click();
-                    URL.revokeObjectURL(a.href);
-                    document.body.removeChild(a);
-                });
-                return;
             }
-            if (button.classList.contains('share-btn')) {
-                const content = unescape(button.dataset.shareContent);
-                const container = button.closest('.tab-pane').querySelector('.share-result-container');
-                const baseUrl = window.location.origin + window.location.pathname;
-                const encodedContent = encodeURIComponent(content);
-                const shareUrl = `${baseUrl}?config=${encodedContent}`;
 
-                if (shareUrl.length > 2000) {
-                     Swal.fire('خطا در اشتراک‌گذاری', 'محتوای کانفیگ برای ایجاد لینک اشتراک‌گذاری بسیار طولانی است. لطفاً از دکمه کپی یا دانلود استفاده کنید.', 'error');
-                     return;
-                }
-
-                container.querySelector('input').value = shareUrl;
-                container.classList.remove('hidden');
-
-                const tabId = button.closest('.tab-pane').id;
-                if (['tab-subscription', 'tab-singbox'].includes(tabId)) {
-                     updateQrCode(shareUrl, `کد QR لینک اشتراک`);
-                }
-                return;
-            }
-            if (button.id === 'smartJitterBtn') {
-                document.getElementById('ifp-select').value = RECOMMENDED_JITTER.ifp;
-                document.getElementById('ifps-select').value = RECOMMENDED_JITTER.ifps;
-                document.getElementById('ifpd-select').value = RECOMMENDED_JITTER.ifpd;
-                document.getElementById('ifpm-select').value = RECOMMENDED_JITTER.ifpm;
-                updateAndRenderAllConfigs();
-                return;
-            }
-            if (button.id === 'resetSettingsBtn') {
-                document.getElementById('dns-input').value = DEFAULT_DNS;
-                document.getElementById('url-test-input').value = DEFAULT_URL_TEST;
-                document.getElementById('url-test-interval-input').value = DEFAULT_URL_TEST_INTERVAL;
-                document.getElementById('config-name-input').value = 'WG';
-                document.getElementById('ifp-select').value = DEFAULT_JITTER.ifp;
-                document.getElementById('ifps-select').value = DEFAULT_JITTER.ifps;
-                document.getElementById('ifpd-select').value = DEFAULT_JITTER.ifpd;
-                document.getElementById('ifpm-select').value = DEFAULT_JITTER.ifpm;
-                document.getElementById('wow-toggle').checked = false;
-                updateAndRenderAllConfigs();
-                return;
-            }
+            zip.generateAsync({ type:"blob" }).then(content => {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(content);
+                a.download = `${settings.configName}-all-modes.zip`;
+                document.body.appendChild(a);
+                a.click();
+                URL.revokeObjectURL(a.href);
+                document.body.removeChild(a);
+            });
         }
-        if (target.classList.contains('tab-btn')) {
-            const active = ['border-pink-500', 'text-pink-400'], inactive = ['border-transparent', 'text-gray-400', 'hover:text-gray-300', 'hover:border-gray-500'];
-            document.querySelectorAll('.tab-btn').forEach(btn => { btn.classList.remove(...active); btn.classList.add(...inactive); });
-            target.classList.add(...active); target.classList.remove(...inactive);
-            
-            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden', 'opacity-0'));
-            const targetPane = document.querySelector(target.dataset.tabTarget);
-            targetPane.classList.remove('hidden');
-            requestAnimationFrame(() => targetPane.classList.remove('opacity-0'));
-            
-            if (!generatedConfigs) return;
-            const getInputLink = (tabId) => document.querySelector(`${tabId} .share-result-container input`)?.value;
-            
-            switch (target.dataset.tabTarget) {
-                case '#tab-standard': updateQrCode(generatedConfigs.standard, 'کد QR (Standard WG)'); break;
-                case '#tab-amnezia': updateQrCode(generatedConfigs.amnezia, 'کد QR (AmneziaWG)'); break;
-                case '#tab-singbox': updateQrCode(getInputLink('#tab-singbox') || generatedConfigs.singbox, 'کد QR پروفایل Sing-Box'); break;
-                case '#tab-subscription': updateQrCode(getInputLink('#tab-subscription') || null, 'کد QR لینک اشتراک'); break;
-                case '#tab-v2ray': updateQrCode(generatedConfigs.v2ray, 'کد QR (V2Ray-Core)'); break;
-                default: updateQrCode(null); break;
-            }
+        else if (button.classList.contains('show-qr-btn')) {
+            const content = unescape(button.dataset.qrContent);
+            const title = button.dataset.qrTitle;
+            showQrCodeModal(content, title);
+        }
+        else if (button.id === 'smartJitterBtn') {
+            document.getElementById('ifp-select').value = RECOMMENDED_JITTER.ifp;
+            document.getElementById('ifps-select').value = RECOMMENDED_JITTER.ifps;
+            document.getElementById('ifpd-select').value = RECOMMENDED_JITTER.ifpd;
+            document.getElementById('ifpm-select').value = RECOMMENDED_JITTER.ifpm;
+            updateAndRenderAllConfigs();
+        }
+        else if (button.id === 'resetSettingsBtn') {
+            document.getElementById('dns-input').value = DEFAULT_DNS;
+            document.getElementById('url-test-input').value = DEFAULT_URL_TEST;
+            document.getElementById('url-test-interval-input').value = DEFAULT_URL_TEST_INTERVAL;
+            document.getElementById('config-name-input').value = 'WG';
+            document.getElementById('ifp-select').value = DEFAULT_JITTER.ifp;
+            document.getElementById('ifps-select').value = DEFAULT_JITTER.ifps;
+            document.getElementById('ifpd-select').value = DEFAULT_JITTER.ifpd;
+            document.getElementById('ifpm-select').value = DEFAULT_JITTER.ifpm;
+            document.getElementById('wow-toggle').checked = false;
+            populateEndpointList(DEFAULT_ENDPOINTS); // This will also trigger re-render
+        }
+        else if (button.id === 'clearEndpointsBtn') {
+            Swal.fire({
+                title: 'پاک کردن اندپوینت‌ها',
+                text: 'آیا از حذف تمام اندپوینت‌های لیست مطمئن هستید؟',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'بله، پاک کن',
+                cancelButtonText: 'انصراف'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById('endpoints-list').innerHTML = '';
+                    updateAndRenderAllConfigs();
+                    Swal.fire('انجام شد!', 'لیست اندپوینت‌ها پاک شد.', 'success');
+                }
+            });
         }
     });
 
@@ -1193,29 +1186,28 @@ document.addEventListener('DOMContentLoaded', () => {
 # راهنمای استفاده و تنظیمات
 
 ## مدیریت لیست Endpoint
-شما می‌توانید لیست Endpoint ها را به صورت کامل مدیریت کنید:
-- **افزودن:** با کلیک روی دکمه "افزودن Endpoint"، یک ردیف جدید برای وارد کردن آدرس جدید ایجاد می‌شود.
-- **ویرایش/حذف:** با هاور کردن روی هر Endpoint، دکمه‌های ویرایش و حذف ظاهر می‌شوند.
-- **ورود از فایل:** می‌توانید فایل‌های \`.txt\`، \`.csv\` یا \`.xlsx\` را مستقیماً به داخل کادر مشخص شده بکشید و رها کنید، یا با کلیک روی آن، فایل را انتخاب کنید. محتوای فایل جایگزین لیست فعلی خواهد شد.
+- **افزودن/ویرایش/حذف:** لیست را به صورت دستی مدیریت کنید.
+- **ورود از فایل:** فایل‌های \`.txt\`, \`.csv\` یا \`.xlsx\` را بکشید و رها کنید.
+- **پاک کردن:** با کلیک روی دکمه "پاک کردن اندپوینت‌ها"، کل لیست حذف می‌شود.
 
-## تنظیمات نویز WARP (Jitter)
-این پارامترها به شما کمک می‌کنند ترافیک خود را مبهم‌سازی کرده و از شناسایی توسط سیستم‌های فیلترینگ جلوگیری کنید.
+## نام‌گذاری کانفیگ
+نامی که برای پروفایل خود انتخاب می‌کنید، به صورت خودکار به عنوان نام پایه در خروجی‌ها (نام فایل، کامنت داخل کانفیگ) استفاده می‌شود.
 
--   **IFP:** تعداد بسته‌های نویز در هر ارتباط.
--   **IFPS:** اندازه هر بسته نویز (به بایت).
--   **IFPD:** تأخیر زمانی بین ارسال بسته‌های نویز (به میلی‌ثانیه).
+## کدهای QR هوشمند
+برای کانفیگ‌های حجیم (مانند JSON)، کد QR یک لینک اشتراک‌گذاری تولید می‌کند. با اسکن این لینک، به همین صفحه هدایت می‌شوید و کانفیگ آماده کپی خواهد بود. این کار از خطاهای ناشی از طولانی بودن محتوا جلوگیری می‌کند.
+
+## تنظیمات نویز (Jitter)
+این پارامترها به شما کمک می‌کنند ترافیک خود را مبهم‌سازی کنید.
+-   **IFP:** تعداد بسته‌های نویز.
+-   **IFPS:** اندازه بسته‌های نویز (بایت).
+-   **IFPD:** تأخیر بین بسته‌های نویز (میلی‌ثانیه).
 -   **IFPM:** حالت (پروتکل) تولید نویز.
+- **Jitter هوشمند:** بهترین تنظیمات پیشنهادی را با یک کلیک اعمال کنید.
 
-## تنظیمات پیشنهادی (Jitter هوشمند)
-برای عملکرد بهینه و متعادل، می‌توانید از دکمه "Jitter هوشمند" استفاده کنید که تنظیمات زیر را اعمال می‌کند:
--   **IFP:** \`40-80\`
--   **IFPS:** \`50-100\`
--   **IFPD:** \`2-4\`
--   **IFPM**: \`m3\` (مبتنی بر پروتکل HTTP/3)
-
-## پشتیبان گیری و بازیابی
-- **پشتیبان گیری:** با کلیک روی این دکمه، یک فایل JSON حاوی تمام پروفایل‌های ذخیره شده شما دانلود می‌شود. این فایل را در مکانی امن نگهداری کنید.
-- **بازیابی:** با کلیک روی این دکمه، می‌توانید فایل پشتیبان JSON را انتخاب کرده و تمام پروفایل‌های خود را بازیابی کنید.
+## مدیریت داده‌ها
+- **پشتیبان گیری:** از تمام پروفایل‌های خود یک فایل JSON تهیه کنید.
+- **بازیابی:** پروفایل‌های خود را از فایل پشتیبان بازگردانید.
+- **پاک کردن همه:** **تمام پروفایل‌های ذخیره شده** در مرورگر را برای همیشه پاک می‌کند.
         `;
         try {
             howToUseContent.innerHTML = marked.parse(markdownContent);
