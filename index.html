@@ -18,7 +18,7 @@
     <!-- SheetJS for reading XLSX files -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="httpshttps://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -50,6 +50,7 @@
         .tab-pane { transition: opacity 0.35s ease-in-out; }
         .tooltip-icon { cursor: pointer; display: inline-block; margin-right: 5px; color: #9ca3af; font-weight: bold; }
         .swal2-popup { font-family: 'Vazirmatn', sans-serif; direction: rtl; }
+        .swal2-textarea { direction: ltr; text-align: left; font-family: monospace; }
 
         .drop-zone { border: 2px dashed #4a5568; border-radius: 0.75rem; padding: 1.5rem; text-align: center; color: #a0aec0; cursor: pointer; transition: border-color 0.3s, background-color 0.3s; }
         .drop-zone-over { border-color: #f093fb; background-color: rgba(240, 147, 251, 0.1); }
@@ -145,26 +146,6 @@ tsParticles.load("particles-js", { fpsLimit: 60, particles: { number: { value: 5
 // ===== APP LOGIC =====
 document.addEventListener('DOMContentLoaded', () => {
     // --- CONFIGURATION & CONSTANTS ---
-    class ShzAlClient {
-        constructor(baseURL = 'https://shz.al') { this.baseURL = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL; }
-        async _handleResponse(response) { if (!response.ok) { const errorText = await response.text(); throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`); } return response.json(); }
-        async uploadPaste(content, options = {}) { const formData = new FormData(); formData.append('c', content); if (options.expiration) formData.append('e', options.expiration); const response = await fetch(this.baseURL + '/', { method: 'POST', body: formData }); return this._handleResponse(response); }
-    }
-     class TtmShClient {
-        constructor(baseURL = 'https://ttm.sh') { this.baseURL = baseURL; }
-        async uploadPaste(content, options = {}) {
-            const formData = new FormData();
-            formData.append('c', content);
-            const response = await fetch(this.baseURL, { method: 'POST', body: formData });
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`);
-            }
-            const textResponse = await response.text();
-            return { url: textResponse.trim() };
-        }
-    }
-
     const STORAGE_KEY = 'warpGeneratorAccounts';
     const DEFAULT_DNS = 'https://dns.google/dns-query';
     const DEFAULT_URL_TEST = 'https://www.youtube.com/';
@@ -180,7 +161,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     // --- DOM ELEMENT REFERENCES ---
-    const shortenerClients = { 'shz.al': new ShzAlClient(), 'ttm.sh': new TtmShClient() };
     const statusText = document.getElementById('statusText');
     const resultsDiv = document.getElementById('results');
     const firstTimeGeneratorDiv = document.getElementById('first-time-generator');
@@ -380,7 +360,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const singboxTemplate = buildJsonTemplate();
         
-        const v2rayConfigString = `{\n  "outbounds": [\n    {\n      "type": "wireguard",\n      "tag": "WARP",\n      "server": "${primaryEndpoint.split(':')[0]}",\n      "server_port": ${parseInt(primaryEndpoint.split(':')[1] || 2408)},\n      "local_address": ["${account.v4}/32", "${account.v6}/128"],\n      "private_key": "${account.privateKey}",\n      "peer_public_key": "${account.peerPublicKey}",\n      "reserved": [${account.reserved.join(', ')}],\n      "mtu": 1280\n    }\n  ]\n}`;
+        const currentDate = new Date().toISOString().split('T')[0];
+        const v2rayConfigObject = {
+          "dns": {
+            "hosts": {
+              "ext:geosite_c4u.dat:category-ads-all": "127.0.0.1", "ext:geosite_c4u.dat:nsfw": "127.0.0.1",
+              "ext:geosite_c4u.dat:malware": "127.0.0.1", "ext:geosite_c4u.dat:phishing": "127.0.0.1",
+              "ext:geosite_c4u.dat:cryptominers": "127.0.0.1", "domain:googleapis.cn": "googleapis.com"
+            },
+            "servers": [
+              { "address": "fakedns", "domains": [ "geosite:cn", "regexp:.*\\.ir$", "regexp:.*\\.xn--mgba3a4f16a$", "ext:geosite_c4u.dat:ir", "geosite:private" ] },
+              settings.dns
+            ]
+          },
+          "fakedns": [ { "ipPool": "198.18.0.0/15", "poolSize": 10000 } ],
+          "inbounds": [
+            { "port": 10808, "protocol": "socks", "settings": { "auth": "noauth", "udp": true, "userLevel": 8 }, "sniffing": { "destOverride": [ "http", "tls", "fakedns" ], "enabled": true }, "tag": "socks" },
+            { "port": 10809, "protocol": "http", "settings": { "userLevel": 8 }, "tag": "http" },
+            { "listen": "127.0.0.1", "port": 10853, "protocol": "dokodemo-door", "settings": { "address": "1.1.1.1", "network": "tcp,udp", "port": 53 }, "tag": "dns-in" }
+          ],
+          "log": { "loglevel": "warning" },
+          "outbounds": [
+            {
+              "mux": { "concurrency": -1, "enabled": false, "xudpConcurrency": 8, "xudpProxyUDP443": "" },
+              "protocol": "wireguard",
+              "settings": {
+                "address": [ `${account.v4}/32`, `${account.v6}/128` ],
+                "mtu": 1280,
+                "peers": [ { "endpoint": primaryEndpoint, "keepAlive": 5, "preSharedKey": "", "publicKey": account.peerPublicKey } ],
+                "reserved": account.reserved,
+                "secretKey": account.privateKey,
+                "wnoise": "quic",
+                "wnoisecount": jitter.ifp,
+                "wnoisedelay": jitter.ifpd,
+                "wpayloadsize": jitter.ifps
+              },
+              "tag": "proxy"
+            },
+            { "protocol": "freedom", "settings": { "domainStrategy": "UseIP" }, "tag": "direct" },
+            { "protocol": "blackhole", "settings": { "response": { "type": "http" } }, "tag": "block" },
+            { "protocol": "dns", "tag": "dns-out" }
+          ],
+          "policy": {
+            "levels": { "8": { "connIdle": 300, "downlinkOnly": 1, "handshake": 4, "uplinkOnly": 1 } },
+            "system": { "statsOutboundUplink": true, "statsOutboundDownlink": true }
+          },
+          "remarks": `W ${currentDate}`,
+          "routing": {
+            "domainStrategy": "IPIfNonMatch",
+            "rules": [
+              { "inboundTag": [ "dns-in" ], "outboundTag": "dns-out", "type": "field" },
+              { "domain": [ "regexp:.*\\.ir$", "regexp:.*\\.xn--mgba3a4f16a$", "ext:geosite_c4u.dat:ir", "geosite:private" ], "outboundTag": "direct", "type": "field" },
+              { "ip": [ "ext:geoip_c4u.dat:ir", "geoip:private" ], "outboundTag": "direct", "type": "field" },
+              { "domain": [ "ext:geosite_c4u.dat:category-ads-all", "ext:geosite_c4u.dat:nsfw", "ext:geosite_c4u.dat:malware", "ext:geosite_c4u.dat:phishing", "ext:geosite_c4u.dat:cryptominers" ], "outboundTag": "block", "type": "field" },
+              { "ip": [ "ext:geoip_c4u.dat:malware", "ext:geoip_c4u.dat:phishing", "10.10.34.34", "10.10.34.35", "10.10.34.36" ], "outboundTag": "block", "type": "field" }
+            ]
+          },
+          "stats": {}
+        };
+        const v2rayConfigString = JSON.stringify(v2rayConfigObject, null, 2);
+
         setStatus("");
         return {
             standard: allStandardConfs.trim(),
@@ -566,10 +605,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const colorClass = data.id === 'amnezia' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700';
 
             let buttonsHtml, contentHtml;
-            const shareOptions = `<select class="shortener-select bg-gray-800 text-white text-xs p-1 rounded-md border border-gray-600">
-                <option value="shz.al">shz.al</option>
-                <option value="ttm.sh">ttm.sh</option>
-            </select>`;
             
             if (data.id === 'subscription') {
                 const firstLink = data.content.split('\n')[0];
@@ -602,7 +637,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="share-result-container hidden mt-2">
                      <div class="flex gap-2">
                         <input type="text" readonly class="ltr-input flex-grow bg-black/30 border border-gray-600 rounded-md p-2 text-sm text-gray-300">
-                        ${ data.id !== 'standard' && data.id !== 'amnezia' ? shareOptions : '' }
                         <button class="copy-link-btn flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold py-1 px-3 rounded-lg text-sm transition-colors"><span class="copy-btn-text">کپی</span></button>
                     </div>
                 </div>
@@ -640,7 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
             accounts.push({ name, account: newAccount });
             saveAccounts(accounts);
             setStatus("کانفیگ جدید ذخیره شد! در حال بارگذاری...");
-            await initialize();
+            await initialize(true); // Pass true to skip loading from URL
             savedConfigsDropdown.selectedIndex = accounts.length - 1;
             await loadSelectedConfig(false);
         } catch (error) {
@@ -720,7 +754,45 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function initialize() {
+    // NEW: Function to handle loading config from URL
+    function loadConfigFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const configData = urlParams.get('config');
+
+        if (configData) {
+            try {
+                const decodedConfig = decodeURIComponent(configData);
+                Swal.fire({
+                    title: 'کانفیگ اشتراک‌گذاری شده',
+                    html: `<p class="mb-2 text-right">محتوای کانفیگ دریافت شده در زیر آمده است:</p>
+                           <textarea readonly class="swal2-textarea w-full h-64 border rounded-md p-2">${escapeHtml(decodedConfig)}</textarea>`,
+                    showCancelButton: true,
+                    confirmButtonText: 'کپی و بستن',
+                    cancelButtonText: 'بستن',
+                    preConfirm: () => {
+                        navigator.clipboard.writeText(decodedConfig).then(() => {
+                           Swal.showValidationMessage('کانفیگ با موفقیت کپی شد!');
+                        });
+                        return false; // Prevent modal from closing immediately
+                    }
+                });
+            } catch (error) {
+                console.error("Error decoding config from URL:", error);
+                Swal.fire('خطا', 'فرمت کانفیگ اشتراک‌گذاری شده در URL نامعتبر است.', 'error');
+            }
+            // Clean the URL
+            history.replaceState(null, '', window.location.pathname);
+            return true; // Indicate that we loaded from URL
+        }
+        return false; // Indicate that we did not load from URL
+    }
+
+    async function initialize(skipUrlCheck = false) {
+        if (!skipUrlCheck) {
+            const loadedFromUrl = loadConfigFromURL();
+            if (loadedFromUrl) return; // Stop initialization if we are just showing a shared config
+        }
+        
         const accounts = getSavedAccounts();
         if (accounts.length > 0) {
             showManagerUI(accounts);
@@ -774,7 +846,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 saveAccounts(accounts);
                 setStatus("کانفیگ حذف شد.");
                 Swal.fire('حذف شد!', 'کانفیگ با موفقیت حذف شد.', 'success');
-                initialize();
+                initialize(true);
             }
         });
     });
@@ -841,7 +913,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 saveAccounts(restoredAccounts);
                 setStatus("کانفیگ‌ها با موفقیت بازیابی شدند.");
                 Swal.fire('موفق!', 'کانفیگ‌ها با موفقیت بازیابی شدند.', 'success');
-                initialize();
+                initialize(true);
             } catch (err) {
                 setStatus("فایل پشتیبان نامعتبر است.", true);
                 Swal.fire('خطا!', 'فایل پشتیبان نامعتبر است.', 'error');
@@ -1038,24 +1110,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (button.classList.contains('share-btn')) {
                 const content = unescape(button.dataset.shareContent);
-                const original = button.innerHTML;
                 const container = button.closest('.tab-pane').querySelector('.share-result-container');
-                const shortenerKey = container.querySelector('.shortener-select')?.value || 'shz.al';
-                const client = shortenerClients[shortenerKey];
+                const baseUrl = window.location.origin + window.location.pathname;
+                const encodedContent = encodeURIComponent(content);
+                const shareUrl = `${baseUrl}?config=${encodedContent}`;
 
-                button.disabled = true; button.innerHTML = 'در حال اشتراک...';
-                try {
-                    const res = await client.uploadPaste(content, { expiration: '1h' });
-                    container.querySelector('input').value = res.url;
-                    container.classList.remove('hidden');
-                    const tabId = button.closest('.tab-pane').id;
-                    if (['tab-subscription', 'tab-singbox'].includes(tabId)) {
-                        updateQrCode(res.url, `کد QR لینک ${tabId.replace('tab-','')}`);
-                    }
-                } catch (err) {
-                    Swal.fire('خطا!', `اشتراک گذاری ناموفق بود: ${err.message}`, 'error');
-                } finally {
-                    button.disabled = false; button.innerHTML = original;
+                if (shareUrl.length > 2000) {
+                     Swal.fire('خطا در اشتراک‌گذاری', 'محتوای کانفیگ برای ایجاد لینک اشتراک‌گذاری بسیار طولانی است. لطفاً از دکمه کپی یا دانلود استفاده کنید.', 'error');
+                     return;
+                }
+
+                container.querySelector('input').value = shareUrl;
+                container.classList.remove('hidden');
+
+                const tabId = button.closest('.tab-pane').id;
+                if (['tab-subscription', 'tab-singbox'].includes(tabId)) {
+                     updateQrCode(shareUrl, `کد QR لینک اشتراک`);
                 }
                 return;
             }
@@ -1097,9 +1167,9 @@ document.addEventListener('DOMContentLoaded', () => {
             switch (target.dataset.tabTarget) {
                 case '#tab-standard': updateQrCode(generatedConfigs.standard, 'کد QR (Standard WG)'); break;
                 case '#tab-amnezia': updateQrCode(generatedConfigs.amnezia, 'کد QR (AmneziaWG)'); break;
-                case '#tab-singbox': updateQrCode(getInputLink('#tab-singbox') || configs.singbox, 'کد QR پروفایل Sing-Box'); break;
+                case '#tab-singbox': updateQrCode(getInputLink('#tab-singbox') || generatedConfigs.singbox, 'کد QR پروفایل Sing-Box'); break;
                 case '#tab-subscription': updateQrCode(getInputLink('#tab-subscription') || null, 'کد QR لینک اشتراک'); break;
-                case '#tab-v2ray': updateQrCode(null, 'کد QR (V2Ray-Core)'); break;
+                case '#tab-v2ray': updateQrCode(generatedConfigs.v2ray, 'کد QR (V2Ray-Core)'); break;
                 default: updateQrCode(null); break;
             }
         }
