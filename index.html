@@ -264,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function generateAllFormats(account, allEndpoints, settings) {
-        setStatus("در حال دریافت لایسنس‌ها برای هر کانفیگ...");
+        setStatus("در حال تولید کانفیگ‌ها...");
         const primaryEndpoint = allEndpoints[0] || '';
         if (!primaryEndpoint) {
              setStatus("خطا: حداقل یک Endpoint مورد نیاز است.", true);
@@ -361,22 +361,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const currentDate = new Date().toISOString().split('T')[0];
         const v2rayConfigObject = {
-          "dns": { "servers": [ { "address": "fakedns" }, settings.dns ], "hosts": { "domain:googleapis.cn": "googleapis.com" } },
-          "fakedns": [ { "ipPool": "198.18.0.0/15", "poolSize": 10000 } ],
-          "inbounds": [
-            { "port": 10808, "protocol": "socks", "settings": { "auth": "noauth", "udp": true, "userLevel": 8 }, "sniffing": { "destOverride": [ "http", "tls", "fakedns" ], "enabled": true }, "tag": "socks" },
-            { "port": 10809, "protocol": "http", "settings": { "userLevel": 8 }, "tag": "http" }
-          ],
-          "log": { "loglevel": "warning" },
+          "dns": { "servers": [ "8.8.8.8" ] },
+          "inbounds": [ { "port": 10808, "listen": "127.0.0.1", "protocol": "socks", "settings": { "auth": "noauth", "udp": true } } ],
           "outbounds": [
             {
               "protocol": "wireguard",
               "settings": {
-                "address": [ `${account.v4}/32`, `${account.v6}/128` ],
-                "mtu": 1280,
-                "peers": [ { "endpoint": primaryEndpoint, "keepAlive": 5, "publicKey": account.peerPublicKey } ],
-                "reserved": account.reserved,
                 "secretKey": account.privateKey,
+                "address": [ `${account.v4}/32`, `${account.v6}/128` ],
+                "peers": [ { "publicKey": account.peerPublicKey, "endpoint": primaryEndpoint } ],
+                "mtu": 1280,
+                "reserved": account.reserved
               },
               "tag": "proxy"
             },
@@ -388,50 +383,76 @@ document.addEventListener('DOMContentLoaded', () => {
         const v2rayConfigString = JSON.stringify(v2rayConfigObject, null, 2);
 
         const buildV2rayFullProfileTemplate = () => {
-            const template = {
-                "log": { "loglevel": "warning" },
-                "dns": { "tag": "dns" /* DNS structure will be added from template */ },
-                "inbounds": [],
-                "outbounds": [],
-                "routing": { /* Routing rules from template */ },
-                "policy": { "levels": { "8": { "connIdle": 300, "downlinkOnly": 1, "handshake": 4, "uplinkOnly": 1 } }, "system": { "statsOutboundUplink": true, "statsOutboundDownlink": true } },
-                "observatory": { "subjectSelector": ["proxy"], "probeUrl": "https://www.gstatic.com/generate_204", "probeInterval": "30s" }
-            };
+            const outbounds = [];
+            const proxyTags = [];
 
-            // Copy static parts from your example
-            template.dns = { /* Your large DNS object here */ };
-            template.inbounds = [
-                { "port": 10808, "protocol": "socks", "settings": { "auth": "noauth", "udp": true, "userLevel": 8 }, "sniffing": { "destOverride": ["http", "tls", "fakedns"], "enabled": true }, "tag": "socks-in" },
-                { "port": 10853, "protocol": "dokodemo-door", "settings": { "address": "1.1.1.1", "network": "tcp,udp", "port": 53 }, "tag": "dns-in" }
-            ];
-             template.routing = {"domainStrategy": "IPIfNonMatch", "rules": [{"inboundTag": ["dns-in"], "outboundTag": "dns-out", "type": "field"}, {"type": "field", "outboundTag": "direct", "domain": ["geosite:ir"]}, {"type": "field", "outboundTag": "direct", "ip": ["geoip:ir", "geoip:private"]}, {"type": "field", "outboundTag": "block", "domain": ["geosite:category-ads-all"]}]};
-             template.outbounds.push({ "protocol": "dns", "tag": "dns-out"});
-             template.outbounds.push({ "protocol": "direct", "tag": "direct"});
-             template.outbounds.push({ "protocol": "block", "tag": "block"});
-             
-             // Add a main selector
-             const selector = {"tag": "proxy", "protocol": "selector", "settings": {"outbounds": []}};
-             template.outbounds.unshift(selector); // Add to the beginning
-
-            // Add WireGuard outbounds dynamically
             allEndpoints.forEach((ep, index) => {
                 if (!ep.includes(':')) return;
-                const wireguardOutbound = {
+                const tag = `prox-${index + 1}`;
+                proxyTags.push(tag);
+                outbounds.push({
                     "protocol": "wireguard",
-                    "tag": `prox-${index + 1}`,
+                    "tag": tag,
                     "settings": {
                         "secretKey": account.privateKey,
                         "address": [ `${account.v4}/32`, `${account.v6}/128` ],
-                        "peers": [ { "publicKey": account.peerPublicKey, "endpoint": ep, "keepAlive": 25 } ],
+                        "peers": [{ "publicKey": account.peerPublicKey, "endpoint": ep, "keepAlive": 25 }],
                         "mtu": 1280,
                         "reserved": account.reserved
                     }
-                };
-                template.outbounds.push(wireguardOutbound);
-                selector.settings.outbounds.push(`prox-${index + 1}`);
+                });
             });
+
+            const balancer = {
+                "tag": "balancer",
+                "protocol": "balancer",
+                "settings": {
+                    "selector": proxyTags
+                }
+            };
             
-            return template;
+            const selector = {
+                "tag": "proxy",
+                "protocol": "selector",
+                "settings": {
+                    "outbounds": ["balancer", "direct", ...proxyTags],
+                    "default": "balancer"
+                }
+            };
+
+            outbounds.unshift(balancer, selector, {"protocol": "dns", "tag": "dns-out"}, {"protocol": "direct", "tag": "direct"}, {"protocol": "block", "tag": "block"});
+
+            return {
+                "log": { "loglevel": "warning" },
+                "dns": {
+                    "hosts": { "geosite:category-ads-all": ["127.0.0.1"], "geosite:category-ads-ir": ["127.0.0.1"] },
+                    "queryStrategy": "UseIPv4",
+                    "servers": [
+                        { "address": "fakedns", "domains": [ "geosite:openai", "geosite:microsoft", "geosite:oracle", "geosite:docker", "geosite:adobe", "geosite:epicgames", "geosite:intel", "geosite:amd", "geosite:nvidia", "geosite:asus", "geosite:hp", "geosite:lenovo", "domain:google.com", "domain:gemini.google.com" ] },
+                        { "address": "https://dns.adguard-dns.com/dns-query", "tag": "remote-dns" },
+                        { "address": "78.157.42.100", "domains": [ "geosite:openai", "geosite:microsoft", "geosite:oracle", "geosite:docker", "geosite:adobe", "geosite:epicgames", "geosite:intel", "geosite:amd", "geosite:nvidia", "geosite:asus", "geosite:hp", "geosite:lenovo", "domain:google.com", "domain:gemini.google.com" ], "skipFallback": true },
+                        { "address": "8.8.8.8", "domains": [ "full:sogol.sinamai.workers.dev", "full:www.speedtest.net", "full:Www.Speedtest.net", "full:steamdb.info", "full:zula.ir" ], "skipFallback": true }
+                    ], "tag": "dns"
+                },
+                "fakedns": { "ipPool": "198.18.0.0/15", "poolSize": 65535 },
+                "inbounds": [
+                    { "port": 10808, "listen": "127.0.0.1", "protocol": "socks", "settings": { "auth": "noauth", "udp": true, "userLevel": 8 }, "sniffing": { "destOverride": ["http", "tls", "fakedns"], "enabled": true }, "tag": "socks-in" },
+                    { "port": 10853, "listen": "127.0.0.1", "protocol": "dokodemo-door", "settings": { "address": "1.1.1.1", "network": "tcp,udp", "port": 53 }, "tag": "dns-in" }
+                ],
+                "outbounds": outbounds,
+                "routing": {
+                    "domainStrategy": "IPIfNonMatch",
+                    "rules": [
+                        { "type": "field", "inboundTag": ["dns-in"], "outboundTag": "dns-out" },
+                        { "type": "field", "ip": ["fakedns"], "outboundTag": "proxy" },
+                        { "type": "field", "outboundTag": "direct", "domain": ["geosite:ir"] },
+                        { "type": "field", "outboundTag": "direct", "ip": ["geoip:ir", "geoip:private"] },
+                        { "type": "field", "outboundTag": "block", "domain": ["geosite:category-ads-all"] }
+                    ],
+                    "final": "proxy"
+                },
+                "observatory": { "subjectSelector": ["^prox-"], "probeUrl": "https://www.gstatic.com/generate_204", "probeInterval": "30s" }
+            };
         };
         const v2rayFullProfileTemplate = buildV2rayFullProfileTemplate();
 
